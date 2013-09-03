@@ -54,6 +54,15 @@ class ShotgunLasso(object):
 		self.lam = value
 		lib.Shotgun_set_lambda(self.obj, ctypes.c_double(value))
 
+	def set_tolerance(self, value):
+		lib.Shotgun_set_threshold(self.obj, ctypes.c_double(value))
+
+	def set_use_offset(self, value):
+		lib.Shotgun_set_use_offset(self.obj, ctypes.c_int(value))
+
+	def set_num_threads(self, value):
+		lib.Shotgun_set_num_threads(self.obj, ctypes.c_int(value))
+
 	def run(self):
 		# Runs shotgun-lasso
 		# Returns a solution object with several attributes

@@ -92,6 +92,18 @@ class Shotgun {
 		void set_lambda(double value) {
 			lambda = value;
 		}
+	
+		void set_threshold(double value) {
+			threshold = value;
+		}
+
+		void set_use_offset(int value) {
+			useOffset = value; 
+		}
+
+		void set_num_threads(int value) {
+			numThreads = value;
+		}
 
 		void run(double* result) {
 			if (numThreads > 0) {
@@ -122,6 +134,18 @@ extern "C" {
 
 	void Shotgun_set_lambda(Shotgun* s, double value) {
 		s->set_lambda(value);
+	}
+
+	void Shotgun_set_threshold(Shotgun* s, double value) {
+		s->set_threshold(value);
+	}
+
+	void Shotgun_set_use_offset(Shotgun* s, int value) {
+		s->set_use_offset(value);
+	}
+
+	void Shotgun_set_num_threads(Shotgun* s, int value) {
+		s->set_num_threads(value);
 	}
 
 	void Shotgun_run(Shotgun* s, double* result, long length) {
