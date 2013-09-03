@@ -7,8 +7,8 @@
 
 class Shotgun {
 		double lambda;
-		long N;
-		long d;
+		int N;
+		int d;
 		shotgun_data sd;
 		double threshold;
 		int K;
@@ -17,24 +17,10 @@ class Shotgun {
 		int verbose;
 		int numThreads;
 
-	public:
-		Shotgun() {
-			useOffset = 1;		
-			threshold = 1e-5;
-			K = 0;
-			maxIter = 1e6;
-			verbose = 0;
-			numThreads = 5;
-		}
-	
-		void set_A(double* data, int dim, long* shape) {
-			if (dim != 2) {
-				std::cerr << "A matrix must be 2d\n";
-				throw dim;
-			}
-			N = shape[0];
-			d = shape[1];
-			
+		void prep_shape(int N, int d) {
+			this->N = N;
+			this->d = d;
+
 			sd.ny = N;
 			sd.nx = d;
 			
@@ -44,16 +30,53 @@ class Shotgun {
 			
 			sd.A_rows.resize(N);
 			sd.A_cols.resize(d);
+		}
 
-			long i = 0;
-			for (int row=0; row < N; row++) {
-				for (int col=0; col < d; col++) {
+		void add_nonzero(int row, int col, double val) {
+				sd.A_cols[col].add(row, val);
+				sd.A_rows[row].add(col, val);
+		}
+
+	public:
+		Shotgun() {
+			useOffset = 1;		
+			threshold = 1e-5;
+			K = 0;
+			maxIter = 5e6;
+			verbose = 0;
+			numThreads = 4;
+		}
+	
+		void set_A(double* data, int N, int d) {
+			// Set N, set d, allocate memory, etc:
+			prep_shape(N, d);
+
+			int i = 0;
+			for (int col=0; col < d; col++) {
+				for (int row=0; row < N; row++) {
 					double val = data[i++];
 					if (val != 0) {
-						sd.A_cols[col].add(row, val);
-						sd.A_rows[row].add(col, val);
+						add_nonzero(row, col, val);
 					}
 				}
+			}
+		}
+
+		void set_A_sparse(double* data, int* indices, int nnz, int N, int d) {
+			// Assumes csc sparse matrix format
+
+			// Set N, set d, allocate memory, etc:
+			prep_shape(N, d);
+
+			int i = 0;
+			int col = 0;
+			int last_row = 0;
+			while (i < nnz) {
+				int row = indices[i];
+				if (row < last_row) 
+					col++;
+				add_nonzero(row, col, data[i++]);	
+				last_row = row;
 			}
 		}
 
@@ -85,8 +108,12 @@ class Shotgun {
 extern "C" {
 	Shotgun* Shotgun_new() { return new Shotgun(); }
 
-	void Shotgun_set_A(Shotgun* s, double* data, int dim, long* shape) {
-		s->set_A(data, dim, shape);
+	void Shotgun_set_A(Shotgun* s, double* data, int N, int d) {
+		s->set_A(data, N, d);
+	}
+
+	void Shotgun_set_A_sparse(Shotgun* s, double* data, int* indices, int nnz, int N, int d) {
+		s->set_A_sparse(data, indices, nnz, N, d);
 	}
 
 	void Shotgun_set_y(Shotgun* s, double* data, int length) {	

@@ -1,12 +1,12 @@
 import numpy as np
+import scipy.sparse as sparse
 import ctypes
-from ctypes import cdll
 import os
 
 # Load Shotgun library:
 dir = os.path.dirname(__file__)
 libraryPath = os.path.join(dir, 'shotgun_api.so')
-lib = cdll.LoadLibrary(libraryPath)
+lib = ctypes.cdll.LoadLibrary(libraryPath)
 lib.Shotgun_run.restype = ctypes.POINTER(ctypes.c_double)
 
 # Define Shotgun interface:
@@ -24,14 +24,22 @@ class ShotgunLasso(object):
 
 		self.d = A.shape[1]
 		self.A = A
-		
-		matrixArg = A.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-		return lib.Shotgun_set_A(self.obj, matrixArg, A.ndim, A.ctypes.shape)
+
+		(N, d) = A.shape
+
+		if (sparse.issparse(A)):
+			if (not sparse.isspmatrix_csc(A)):
+				A = A.tocsc()
+			indicesArg = A.indices.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+			dataArg = A.data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+			nnzArg = ctypes.c_int(A.nnz)
+			lib.Shotgun_set_A_sparse(self.obj, dataArg, indicesArg, nnzArg, ctypes.c_int(N), ctypes.c_int(d))
+		else:
+			matrixArg = A.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+			lib.Shotgun_set_A(self.obj, matrixArg, ctypes.c_int(N), ctypes.c_int(d))
 
 	def set_y(self, y):
 		# Sets Nx1 labels matrix
-		if (y.ndim != 1):
-			raise Exception("y must be 1d")
 		if (np.iscomplex(y).any()):
 			raise Exception("Sorry, imaginary values are not supported")
 
@@ -43,6 +51,7 @@ class ShotgunLasso(object):
 		# Sets regularization parameter lambda
 		if (not np.isreal(value) or value < 0):
 			raise Exception("Lambda must be a nonnegative real value")
+		self.lam = value
 		lib.Shotgun_set_lambda(self.obj, ctypes.c_double(value))
 
 	def run(self):
@@ -57,13 +66,14 @@ class ShotgunLasso(object):
 
 		w = result[0:-1]
 		offset = result[-1]
-		residuals = np.dot(self.A, w) + offset - self.y 
-		grad = np.dot(self.A.T, residuals)
+		residuals = self.A * np.mat(w).T + offset - np.mat(self.y).T
+		obj = 0.5*np.linalg.norm(residuals, ord=2)**2 + self.lam*np.linalg.norm(w, ord=1)
 
 		sol = lambda:0
 		sol.w = w
 		sol.offset = offset
 		sol.residuals = residuals
+		sol.obj = obj
 		return sol
 
 	def solve_lasso(self, A, y, _lambda):
