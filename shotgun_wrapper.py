@@ -36,7 +36,7 @@ class ShotgunLasso(object):
 			lib.Shotgun_set_A_sparse(self.obj, dataArg, indicesArg, nnzArg, ctypes.c_int(N), ctypes.c_int(d))
 		else:
 			matrixArg = A.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-			lib.Shotgun_set_A(self.obj, matrixArg, ctypes.c_int(N), ctypes.c_int(d))
+			lib.Shotgun_set_A(self.obj, matrixArg, ctypes.c_int(N), ctypes.c_int(d), A.ctypes.strides)
 
 	def set_y(self, y):
 		# Sets Nx1 labels matrix
@@ -75,7 +75,7 @@ class ShotgunLasso(object):
 
 		w = result[0:-1]
 		offset = result[-1]
-		residuals = self.A * np.mat(w).T + offset - np.mat(self.y).T
+		residuals = self.A * np.mat(w).T + offset - np.mat(self.y)
 		obj = 0.5*np.linalg.norm(residuals, ord=2)**2 + self.lam*np.linalg.norm(w, ord=1)
 
 		sol = lambda:0

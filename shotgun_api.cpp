@@ -30,6 +30,7 @@ class Shotgun {
 			
 			sd.A_rows.resize(N);
 			sd.A_cols.resize(d);
+
 		}
 
 		void add_nonzero(int row, int col, double val) {
@@ -40,23 +41,37 @@ class Shotgun {
 	public:
 		Shotgun() {
 			useOffset = 1;		
-			threshold = 1e-5;
+			threshold = 1;
 			K = 0;
 			maxIter = 5e6;
 			verbose = 0;
 			numThreads = 4;
 		}
 	
-		void set_A(double* data, int N, int d) {
+		void set_A(double* data, int N, int d, long* strides) {
+	
+			bool columnMajor = (strides[0] < strides[1]);
+
 			// Set N, set d, allocate memory, etc:
 			prep_shape(N, d);
 
 			int i = 0;
-			for (int col=0; col < d; col++) {
+			if (columnMajor) {
+				for (int col=0; col < d; col++) {
+					for (int row=0; row < N; row++) {
+						double val = data[i++];
+						if (val != 0) {
+							add_nonzero(row, col, val);
+						}
+					}
+				}
+			} else {
 				for (int row=0; row < N; row++) {
-					double val = data[i++];
-					if (val != 0) {
-						add_nonzero(row, col, val);
+					for (int col=0; col < d; col++) {
+						double val = data[i++];
+						if (val != 0) {
+							add_nonzero(row, col, val);
+						}
 					}
 				}
 			}
@@ -120,8 +135,8 @@ class Shotgun {
 extern "C" {
 	Shotgun* Shotgun_new() { return new Shotgun(); }
 
-	void Shotgun_set_A(Shotgun* s, double* data, int N, int d) {
-		s->set_A(data, N, d);
+	void Shotgun_set_A(Shotgun* s, double* data, int N, int d, long* strides) {
+		s->set_A(data, N, d, strides);
 	}
 
 	void Shotgun_set_A_sparse(Shotgun* s, double* data, int* indices, int nnz, int N, int d) {
