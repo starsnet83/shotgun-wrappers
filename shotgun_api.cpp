@@ -2,8 +2,6 @@
 #include <iostream>
 #include <math.h>
 #include "common.h"
-#include "lasso.cpp"
-#include "shared.cpp"
 
 class Shotgun {
 		double lambda;
