@@ -9,8 +9,9 @@ libraryPath = os.path.join(dir, 'shotgun_api.so')
 lib = ctypes.cdll.LoadLibrary(libraryPath)
 lib.Shotgun_run.restype = ctypes.POINTER(ctypes.c_double)
 
+
 # Define Shotgun interface:
-class ShotgunLasso(object):
+class ShotgunSolver(object):
 
 	def __init__(self):
 		self.obj = lib.Shotgun_new()
@@ -45,7 +46,7 @@ class ShotgunLasso(object):
 
 		self.y = y
 		arrayArg = y.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-		lib.Shotgun_set_y(self.obj, arrayArg, len(y)) 
+		lib.Shotgun_set_y(self.obj, arrayArg, ctypes.c_int(len(y))) 
 
 	def set_lambda(self, value):
 		# Sets regularization parameter lambda

@@ -32,14 +32,16 @@ class Shotgun {
 		}
 
 		void add_nonzero(int row, int col, double val) {
-				sd.A_cols[col].add(row, val);
-				sd.A_rows[row].add(col, val);
+			if (val == 0)
+				return;
+			sd.A_cols[col].add(row, val);
+			sd.A_rows[row].add(col, val);
 		}
 
 	public:
 		Shotgun() {
 			useOffset = 1;		
-			threshold = 1;
+			threshold = 1e-5;
 			K = 0;
 			maxIter = 5e6;
 			verbose = 0;
@@ -56,21 +58,13 @@ class Shotgun {
 			int i = 0;
 			if (columnMajor) {
 				for (int col=0; col < d; col++) {
-					for (int row=0; row < N; row++) {
-						double val = data[i++];
-						if (val != 0) {
-							add_nonzero(row, col, val);
-						}
-					}
+					for (int row=0; row < N; row++)
+						add_nonzero(row, col, data[i++]);
 				}
 			} else {
 				for (int row=0; row < N; row++) {
-					for (int col=0; col < d; col++) {
-						double val = data[i++];
-						if (val != 0) {
-							add_nonzero(row, col, val);
-						}
-					}
+					for (int col=0; col < d; col++)
+						add_nonzero(row, col, data[i++]);
 				}
 			}
 		}
