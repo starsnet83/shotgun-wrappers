@@ -171,13 +171,13 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
     //int regularization_path_length = (regpathlength <= 0 ? 1+(int)(lassoprob->nx/2000) : regpathlength);
 
 	int regularization_path_length = 1;
+		lambda = lambda * 2.0;
 
     valuetype_t lambda_max = compute_max_lambda();
     valuetype_t lambda_min = lambda;
     valuetype_t alpha = pow(lambda_max/lambda_min, 1.0/(1.0*regularization_path_length));
     int regularization_path_step = regularization_path_length;
 
-		lambda = lambda * 2.0;
     double delta_threshold = threshold;
     long long int num_of_shoots = 0;
     int counter = 0;
@@ -224,15 +224,10 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
 			if (regularization_path_step < 0 && maxChange > threshold)
 				regularization_path_step = 0;
         }
-        /*if (verbose){
           double l1x = 0, l2err = 0, l0x = 0;
           valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
-         /mexPrintf("Objective: %g L1 : %g L2err: %g L0 %d\n", obj, l1x, l2err, (int)l0x);
-        }*/
     } while (regularization_path_step >= 0);
     delete[] delta;
-		//if (verbose)
-			//mexPrintf("Num of shoots = %lld\n", num_of_shoots);
 }
 
 /**

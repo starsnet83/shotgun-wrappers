@@ -33,8 +33,9 @@ class ShotgunSolver(object):
 				A = A.tocsc()
 			indicesArg = A.indices.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
 			dataArg = A.data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+			indptrArg = A.indptr.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
 			nnzArg = ctypes.c_int(A.nnz)
-			lib.Shotgun_set_A_sparse(self.obj, dataArg, indicesArg, nnzArg, ctypes.c_int(N), ctypes.c_int(d))
+			lib.Shotgun_set_A_sparse(self.obj, dataArg, indicesArg, indptrArg, nnzArg, ctypes.c_int(N), ctypes.c_int(d))
 		else:
 			matrixArg = A.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
 			lib.Shotgun_set_A(self.obj, matrixArg, ctypes.c_int(N), ctypes.c_int(d), A.ctypes.strides)
@@ -44,7 +45,7 @@ class ShotgunSolver(object):
 		if (np.iscomplex(y).any()):
 			raise Exception("Sorry, imaginary values are not supported")
 
-		self.y = y
+		self.y = y.flatten()
 		arrayArg = y.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
 		lib.Shotgun_set_y(self.obj, arrayArg, ctypes.c_int(len(y))) 
 
@@ -76,7 +77,7 @@ class ShotgunSolver(object):
 
 		w = result[0:-1]
 		offset = result[-1]
-		residuals = self.A * np.mat(w).T + offset - np.mat(self.y)
+		residuals = self.A * np.mat(w).T + offset - np.mat(self.y).T
 		obj = 0.5*np.linalg.norm(residuals, ord=2)**2 + self.lam*np.linalg.norm(w, ord=1)
 
 		sol = lambda:0
