@@ -49,7 +49,6 @@ class Shotgun {
 		}
 	
 		void set_A(double* data, int N, int d, long* strides) {
-			std::cout << "N: " << N << std::endl;
 	
 			bool columnMajor = (strides[0] < strides[1]);
 
@@ -59,19 +58,13 @@ class Shotgun {
 			int i = 0;
 			if (columnMajor) {
 				for (int col=0; col < d; col++) {
-					for (int row=0; row < N; row++) {
-						double val = data[i++];
-						std::cout << val << std::endl;
-						add_nonzero(row, col, val);
-					}
+					for (int row=0; row < N; row++)
+						add_nonzero(row, col, data[i++]);
 				}
 			} else {
 				for (int row=0; row < N; row++) {
-					for (int col=0; col < d; col++) {
-						double val = data[i++];
-						std::cout << val << std::endl;
-						add_nonzero(row, col, val);
-					}
+					for (int col=0; col < d; col++)
+						add_nonzero(row, col, data[i++]);
 				}
 			}
 		}

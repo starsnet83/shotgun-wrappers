@@ -224,8 +224,8 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
 			if (regularization_path_step < 0 && maxChange > threshold)
 				regularization_path_step = 0;
         }
-          double l1x = 0, l2err = 0, l0x = 0;
-          valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
+          //double l1x = 0, l2err = 0, l0x = 0;
+          //valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
     } while (regularization_path_step >= 0);
     delete[] delta;
 }
