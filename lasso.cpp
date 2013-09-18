@@ -49,27 +49,46 @@ void initialize_feature(int feat_idx) {
     feat.A1_i *= 2;
 }
 
-void initialize(int useOffset) {
+void initialize(int useOffset, double* initial_x = NULL, double initial_offset = NULL) {
     lassoprob->feature_consts.reserve(lassoprob->nx);
     lassoprob->x.resize(lassoprob->nx);
     lassoprob->Ax.resize(lassoprob->ny);
     lassoprob->b = 0.0;
     switch (useOffset) {
-    case 0:
-      break;
-    case 1:
-      for (int i = 0; i < lassoprob->ny; ++i)
-        lassoprob->b += lassoprob->y[i];
-      lassoprob->b /= lassoprob->ny;
-      break;
-    default:
-      assert(false); // In non-debug mode, simply do not use b.
+			case 0:
+				break;
+			case 1:
+				if (initial_offset) {
+					lassoprob->b = initial_offset;
+				} else {
+					for (int i = 0; i < lassoprob->ny; ++i)
+						lassoprob->b += lassoprob->y[i];
+					lassoprob->b /= lassoprob->ny;
+				}
+				break;
+			default:
+				assert(false); // In non-debug mode, simply do not use b.
     }
 
     #pragma omp for
     for(int i=0; i<lassoprob->nx; i++) {
         initialize_feature(i);
     }
+
+		// Initial conditions:	
+	  if (initial_x) {
+			for (int i = 0; i < lassoprob->nx; i++) {
+				if (initial_x[i] != 0) {
+					double col_value = initial_x[i];
+					lassoprob->x[i] = col_value;
+					sparse_array& col = lassoprob->A_cols[i];
+					int len = col.length();
+					for (int j = 0; j < len; j++) 
+						lassoprob->Ax[col.idxs[j]] += col.values[j] * col_value;
+				}
+			}
+		}
+		
 }
 
 valuetype_t soft_thresholdO(valuetype_t _lambda, valuetype_t shootDiff) {
@@ -115,23 +134,6 @@ double shoot(int x_i, valuetype_t lambda) {
 
 }
 
-// Find such lambda that if used for regularization,
-// optimum would have all weights zero.
-/*
-valuetype_t compute_max_lambda() {
-    valuetype_t maxlambda = 0.0;
-    for(int i=0; i<lassoprob->nx; i++) {
-        maxlambda = std::max(maxlambda, std::abs(lassoprob->feature_consts[i].Ay_i - lassoprob->feature_consts[i].A1_i * lassoprob->b));
-    }
-    return maxlambda;
-}
-*/
-
-valuetype_t get_term_threshold(int k, int K, double delta_threshold) {
-  // Stricter termination threshold for last step in the optimization.
-  return (k == 0 ? delta_threshold  : (delta_threshold + k*(delta_threshold*50)/K));
-}
-
  valuetype_t compute_objective(valuetype_t _lambda, std::vector<valuetype_t>& x, double & l0x, valuetype_t * l1x = NULL, valuetype_t * l2err = NULL) {
     double least_sqr = 0;
 
@@ -153,7 +155,7 @@ valuetype_t get_term_threshold(int k, int K, double delta_threshold) {
 
 
 
-void main_optimization_loop(double lambda, int regpathlength, double threshold, int maxiter, int useOffset, int verbose) {
+void main_optimization_loop(double lambda, double threshold, int maxiter, int useOffset, int verbose) {
 
     int iterations = 0;
     int counter = 0;
@@ -209,10 +211,13 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
 /**
  * @param  useOffset  If 0, do not use offset b.  If 1, use offset.
  */
-double solveLasso(shotgun_data  * probdef, double lambda, int regpathlength, double threshold, int maxiter, int useOffset, int verbose) {
+double solveLasso(shotgun_data  * probdef, double lambda, double threshold, int maxiter, int useOffset, int verbose, double* initial_x, double initial_offset) {
     lassoprob = probdef;
-    initialize(useOffset);
-    main_optimization_loop(lambda, regpathlength, threshold, maxiter, useOffset, verbose);
+
+		//double *initial_x = NULL;
+		//double initial_offset = NULL;
+    initialize(useOffset, initial_x, initial_offset);
+    main_optimization_loop(lambda, threshold, maxiter, useOffset, verbose);
     return 0;
 }
 

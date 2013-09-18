@@ -4,10 +4,10 @@ CXX = g++
 all: shotgun_api.o lasso.o
 	$(CXX) -shared $(FLAGS) -o shotgun_api.so shotgun_api.o lasso.o
 
-shotgun_api.o: shotgun_api.cpp
+shotgun_api.o: shotgun_api.cpp common.h
 	$(CXX) -fPIC $(FLAGS) -c shotgun_api.cpp
 
-lasso.o: lasso.cpp
+lasso.o: lasso.cpp common.h
 	$(CXX) -fPIC $(FLAGS) -c lasso.cpp
 
 clean:

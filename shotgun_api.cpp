@@ -9,11 +9,13 @@ class Shotgun {
 		int d;
 		shotgun_data sd;
 		double threshold;
-		int K;
 		int maxIter;
 		int useOffset;
 		int verbose;
 		int numThreads;
+
+		double* xInitial;
+		double offsetInitial;
 
 		void prep_shape(int N, int d) {
 			this->N = N;
@@ -42,10 +44,11 @@ class Shotgun {
 		Shotgun() {
 			useOffset = 1;		
 			threshold = 1e-5;
-			K = 0;
 			maxIter = 5e6;
 			verbose = 0;
 			numThreads = 1;
+			xInitial = NULL;
+			offsetInitial = NULL;
 		}
 	
 		void set_A(double* data, int N, int d, long* strides) {
@@ -78,7 +81,6 @@ class Shotgun {
 			int i = 0;
 			int col = 0;
 			int col_end_i = indptr[1];
-			int last_row = 0;
 			while (i < nnz) {
 				int row = indices[i];
 				if (i == col_end_i) {
@@ -113,11 +115,16 @@ class Shotgun {
 			numThreads = value;
 		}
 
+		void set_initial_conditions(double* x, double offset) {
+			xInitial = x;
+			offsetInitial = offset;
+		}
+
 		void run(double* result) {
 			if (numThreads > 0) {
 				omp_set_num_threads(numThreads);
 			}
-			solveLasso(&sd, lambda, K, threshold, maxIter, useOffset, verbose);
+			solveLasso(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
 			for (int f = 0; f < d; f++)
 				result[f] = sd.x[f];
 			result[d] = sd.b;
@@ -154,6 +161,10 @@ extern "C" {
 
 	void Shotgun_set_num_threads(Shotgun* s, int value) {
 		s->set_num_threads(value);
+	}
+
+	void Shotgun_set_initial_conditions(Shotgun* s, double* x, double offset) {
+		s->set_initial_conditions(x, offset);
 	}
 
 	void Shotgun_run(Shotgun* s, double* result, long length) {

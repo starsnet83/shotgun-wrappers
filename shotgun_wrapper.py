@@ -66,18 +66,20 @@ class ShotgunSolver(object):
 		self.numThreads = value
 		lib.Shotgun_set_num_threads(self.obj, ctypes.c_int(value))
 
-	def initialize_sol(self, w, offset):
+	def set_initial_conditions(self, (w, offset)):
 		wArg = w.ctypes.data_as(ctypes.POINTER(ctypes.c_double))	
+		offsetArg = ctypes.c_double(offset)
+		lib.Shotgun_set_initial_conditions(self.obj, wArg, offsetArg)
 
 
-	def run(self, (wInit, offsetInit)=(None, 0.)):
+	def run(self, initialConditions):
 		# Runs shotgun-lasso
 		# Returns a solution object with several attributes
 		if (self.y.shape[0] != self.A.shape[0]):
 			raise Exception("A and y must have same number of training examples")	
 
-		if (wInit):
-			self.initialize_sol(wInit, offsetInit)
+		if (initialConditions):
+			self.set_initial_conditions(initialConditions)
 
 		result = np.zeros(self.d + 1)	
 		resultArg = result.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
@@ -95,8 +97,8 @@ class ShotgunSolver(object):
 		sol.obj = obj
 		return sol
 
-	def solve_lasso(self, A, y, lam, (wInit, offsetInit)=(None, None)):
+	def solve_lasso(self, A, y, lam, init=None):
 		self.set_A(A)
 		self.set_y(y)
 		self.set_lambda(lam)
-		return self.run((wInit, offsetInit))
+		return self.run(init)
