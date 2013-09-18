@@ -170,7 +170,7 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
     // to take on the regularization path
     //int regularization_path_length = (regpathlength <= 0 ? 1+(int)(lassoprob->nx/2000) : regpathlength);
 
-	int regularization_path_length = 1;
+		int regularization_path_length = 1;
 		lambda = lambda * 2.0;
 
     valuetype_t lambda_max = compute_max_lambda();
@@ -183,15 +183,16 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
     int counter = 0;
     int iterations = 0;
     double *delta = new double[lassoprob->nx];
+		double max_change;
     do {
-        ++iterations;
-        if (iterations >= maxiter && maxiter > 0 && verbose) {
-            //mexPrintf("Exceeded max iterations: %d", maxiter);
-            return;
-        }
-        double maxChange=0;
-        lambda = lambda_min * pow(alpha, regularization_path_step);
+
+				// Update counters:
+        iterations++;
+        counter++; // counts number of iterations for current lambda in regularization path
+
+				max_change = 0;
         
+				// Update offset value:
         if (useOffset == 1) {
           double old_b = lassoprob->b;
           lassoprob->b = 0;
@@ -199,35 +200,40 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
             lassoprob->b += lassoprob->y[i] - lassoprob->Ax[i];
           lassoprob->b /= lassoprob->ny;
           if (old_b != lassoprob->b)
-            maxChange = std::fabs(old_b - lassoprob->b);
+            max_change = std::fabs(old_b - lassoprob->b);
         }
 
-        // Parallel loop
+        // Perfrom shoots on all coordinates in parallel:
         #pragma omp parallel for  
-        for(int i=0; i<lassoprob->nx; i++) 
+        for(int i=0; i<lassoprob->nx; i++) {
             delta[i] = shoot(i, lambda);
-        maxChange = 0;
-        // TODO: use OpenMP reductions (although - not much to gain)
-        for(int i=0; i<lassoprob->nx; i++)
-            maxChange = (maxChange < delta[i] ? delta[i] : maxChange);
-        num_of_shoots += lassoprob->nx;
-        counter++;
+            max_change = (max_change < delta[i] ? delta[i] : max_change);
+				}
 
         // Convergence check.
         // We use a simple trick to converge faster for the intermediate sub-optimization problems
         // on the regularization path. This is important because we do not care about accuracy for
         // the intermediate problems, just want a good warm start for next round.
-        bool converged = (maxChange <= get_term_threshold(regularization_path_step,regularization_path_length,delta_threshold));
+        bool converged = (max_change <= get_term_threshold(regularization_path_step,regularization_path_length,delta_threshold));
         if (converged || counter>std::min(100, (100-regularization_path_step)*2)) {
             counter = 0;
             regularization_path_step--; 
-			if (regularization_path_step < 0 && maxChange > threshold)
-				regularization_path_step = 0;
+						if (regularization_path_step < 0 && max_change > threshold)
+							regularization_path_step = 0;
+						lambda = lambda_min * pow(alpha, regularization_path_step);
         }
-          //double l1x = 0, l2err = 0, l0x = 0;
-          //valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
-    } while (regularization_path_step >= 0);
+
+				// Record number of shoots:
+        num_of_shoots += lassoprob->nx;
+
+				// Compute objective value:
+				//double l1x = 0, l2err = 0, l0x = 0;
+				//valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
+				
+    } while (regularization_path_step >= 0 && (iterations < maxiter || maxiter == 0));
+
     delete[] delta;
+
 }
 
 /**
