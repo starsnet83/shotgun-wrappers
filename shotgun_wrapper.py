@@ -15,6 +15,7 @@ class ShotgunSolver(object):
 
 	def __init__(self):
 		self.obj = lib.Shotgun_new()
+		self.set_num_threads(1)
 		
 	def set_A(self, A):
 		# Sets Nxd data matrix
@@ -63,6 +64,8 @@ class ShotgunSolver(object):
 		lib.Shotgun_set_use_offset(self.obj, ctypes.c_int(value))
 
 	def set_num_threads(self, value):
+		if (type(value) != int):
+			raise Exception("Number of threads should be an integer")
 		self.numThreads = value
 		lib.Shotgun_set_num_threads(self.obj, ctypes.c_int(value))
 
@@ -82,11 +85,25 @@ class ShotgunSolver(object):
 			self.set_initial_conditions(initialConditions)
 
 		result = np.zeros(self.d + 1)	
-		resultArg = result.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-		lib.Shotgun_run(self.obj, resultArg, len(result))
+		initialNumThreads = self.numThreads
+		while True:
+			# Run solver:
+			resultArg = result.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+			lib.Shotgun_run(self.obj, resultArg, len(result))
 
+			# Try to make sure things converged (bit of a hack for now):
+			offset = result[-1]
+			if (np.isnan(offset)):
+				# Not converged so reduce number of threads...
+				newNumThreads = self.numThreads/2
+				self.set_num_threads(newNumThreads)
+				print "Warning: shotgun diverged, reducing number of parallel updates to " + str(newNumThreads)
+			else:
+				self.set_num_threads(initialNumThreads)
+				break
+
+		# Create result object:	
 		w = result[0:-1]
-		offset = result[-1]
 		residuals = self.A * np.mat(w).T + offset - np.mat(self.y).T
 		obj = 0.5*np.linalg.norm(residuals, ord=2)**2 + self.lam*np.linalg.norm(w, ord=1)
 
