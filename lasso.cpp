@@ -112,25 +112,12 @@ double shoot(int x_i, valuetype_t lambda) {
     }
 
 	return std::abs(delta);
-	/*
-	double gradient, epsilon;
-	if (oldvalue > 0) {
-		gradient = 2*AtAxj + lassoprob->b * feat.A1_i - feat.Ay_i + lambda;
-		epsilon = std::abs(gradient);
-	} else if (oldvalue < 0) {
-		gradient = 2*AtAxj + lassoprob->b * feat.A1_i - feat.Ay_i - lambda;
-		epsilon = std::abs(gradient);
-	} else {
-		gradient = std::abs(feat.Ay_i) - lambda;
-		epsilon = (gradient > 0) ? gradient : 0.0;
-	}
 
-    return epsilon;
-	*/
 }
 
 // Find such lambda that if used for regularization,
 // optimum would have all weights zero.
+/*
 valuetype_t compute_max_lambda() {
     valuetype_t maxlambda = 0.0;
     for(int i=0; i<lassoprob->nx; i++) {
@@ -138,6 +125,7 @@ valuetype_t compute_max_lambda() {
     }
     return maxlambda;
 }
+*/
 
 valuetype_t get_term_threshold(int k, int K, double delta_threshold) {
   // Stricter termination threshold for last step in the optimization.
@@ -166,24 +154,17 @@ valuetype_t get_term_threshold(int k, int K, double delta_threshold) {
 
 
 void main_optimization_loop(double lambda, int regpathlength, double threshold, int maxiter, int useOffset, int verbose) {
-    // Empirically found heuristic for deciding how malassoprob->ny steps
-    // to take on the regularization path
-    //int regularization_path_length = (regpathlength <= 0 ? 1+(int)(lassoprob->nx/2000) : regpathlength);
 
-		int regularization_path_length = 1;
-		lambda = lambda * 2.0;
-
-    valuetype_t lambda_max = compute_max_lambda();
-    valuetype_t lambda_min = lambda;
-    valuetype_t alpha = pow(lambda_max/lambda_min, 1.0/(1.0*regularization_path_length));
-    int regularization_path_step = regularization_path_length;
-
-    double delta_threshold = threshold;
-    long long int num_of_shoots = 0;
-    int counter = 0;
     int iterations = 0;
+    int counter = 0;
+    long long int num_of_shoots = 0;
+		bool converged;
+
     double *delta = new double[lassoprob->nx];
 		double max_change;
+
+		lambda = lambda * 2.0; // compensate for how objective function is implemented
+
     do {
 
 				// Update counters:
@@ -210,18 +191,8 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
             max_change = (max_change < delta[i] ? delta[i] : max_change);
 				}
 
-        // Convergence check.
-        // We use a simple trick to converge faster for the intermediate sub-optimization problems
-        // on the regularization path. This is important because we do not care about accuracy for
-        // the intermediate problems, just want a good warm start for next round.
-        bool converged = (max_change <= get_term_threshold(regularization_path_step,regularization_path_length,delta_threshold));
-        if (converged || counter>std::min(100, (100-regularization_path_step)*2)) {
-            counter = 0;
-            regularization_path_step--; 
-						if (regularization_path_step < 0 && max_change > threshold)
-							regularization_path_step = 0;
-						lambda = lambda_min * pow(alpha, regularization_path_step);
-        }
+        // Convergence check:
+        converged = (max_change <= threshold);
 
 				// Record number of shoots:
         num_of_shoots += lassoprob->nx;
@@ -229,8 +200,7 @@ void main_optimization_loop(double lambda, int regpathlength, double threshold, 
 				// Compute objective value:
 				//double l1x = 0, l2err = 0, l0x = 0;
 				//valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
-				
-    } while (regularization_path_step >= 0 && (iterations < maxiter || maxiter == 0));
+		} while (!converged && (iterations < maxiter || maxiter == 0));
 
     delete[] delta;
 
