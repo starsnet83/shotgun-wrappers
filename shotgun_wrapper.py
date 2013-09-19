@@ -77,7 +77,6 @@ class ShotgunSolver(object):
 		# Runs shotgun-lasso
 		# Returns a solution object with several attributes
 
-		print "Running..."
 		if (self.y.shape[0] != self.A.shape[0]):
 			raise Exception("A and y must have same number of training examples")	
 
@@ -93,7 +92,6 @@ class ShotgunSolver(object):
 		cutoff = 0.95 * self.lam
 
 		obj = float('inf')
-		print "Main loop"
 		while True:
 			subGrad = np.array(self.A.T * np.mat(residuals).T).flatten()
 			currentIndices = np.where(abs(subGrad) > cutoff)[0]
