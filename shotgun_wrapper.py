@@ -9,7 +9,6 @@ libraryPath = os.path.join(dir, 'shotgun_api.so')
 lib = ctypes.cdll.LoadLibrary(libraryPath)
 lib.Shotgun_run.restype = ctypes.POINTER(ctypes.c_double)
 
-
 # Define Shotgun interface:
 class ShotgunSolver(object):
 
@@ -23,10 +22,10 @@ class ShotgunSolver(object):
 			raise Exception("A must be 2d")
 		if (np.iscomplex(A).any()):
 			raise Exception("Sorry, imaginary values are not supported")
-
-		self.d = A.shape[1]
 		self.A = A
+		self.d = A.shape[1]
 
+	def load_A(self, A):
 		(N, d) = A.shape
 
 		if (sparse.issparse(A)):
@@ -74,17 +73,58 @@ class ShotgunSolver(object):
 		offsetArg = ctypes.c_double(offset)
 		lib.Shotgun_set_initial_conditions(self.obj, wArg, offsetArg)
 
-
 	def run(self, initialConditions):
 		# Runs shotgun-lasso
 		# Returns a solution object with several attributes
+
+		print "Running..."
 		if (self.y.shape[0] != self.A.shape[0]):
 			raise Exception("A and y must have same number of training examples")	
 
 		if (initialConditions):
-			self.set_initial_conditions(initialConditions)
+			(w, offset) = initialConditions
+			residuals = self.A * np.mat(w).T + offset - np.mat(self.y).T
+			residuals = np.array(residuals).flatten()
+		else:
+			w = np.zeros(self.d) 
+			offset = self.y.mean()
+			residuals = self.y - offset
 
-		result = np.zeros(self.d + 1)	
+		cutoff = 0.95 * self.lam
+
+		obj = float('inf')
+		print "Main loop"
+		while True:
+			subGrad = np.array(self.A.T * np.mat(residuals).T).flatten()
+			currentIndices = np.where(abs(subGrad) > cutoff)[0]
+			currentA = self.A[:, currentIndices]
+			wInit = w[currentIndices]
+			offsetInit = offset
+			sol = self.solve_lasso_subproblem(currentA, (wInit, offsetInit))
+			w = np.zeros(self.d)
+			w[currentIndices] = sol.w
+			if (abs(sol.obj - obj) < 1e-4):
+				sol.w = w
+				break
+			else:
+				obj = sol.obj
+				residuals = np.array(sol.residuals).flatten()
+				offset = sol.offset
+
+		return sol
+
+	def solve_lasso_subproblem(self, A, init=None):
+		# Assumes y and lambda are already loaded
+		self.load_A(A)	
+		d = A.shape[1]
+
+		if (init):
+			self.set_initial_conditions(init)
+
+		# Result vector:
+		result = np.zeros(d + 1)	
+
+		# Complicated mess to ensure convergence:
 		initialNumThreads = self.numThreads
 		while True:
 			# Run solver:
@@ -102,9 +142,8 @@ class ShotgunSolver(object):
 				self.set_num_threads(initialNumThreads)
 				break
 
-		# Create result object:	
 		w = result[0:-1]
-		residuals = self.A * np.mat(w).T + offset - np.mat(self.y).T
+		residuals = A * np.mat(w).T + offset - np.mat(self.y).T
 		obj = 0.5*np.linalg.norm(residuals, ord=2)**2 + self.lam*np.linalg.norm(w, ord=1)
 
 		sol = lambda:0
@@ -113,6 +152,7 @@ class ShotgunSolver(object):
 		sol.residuals = residuals
 		sol.obj = obj
 		return sol
+		
 
 	def solve_lasso(self, A, y, lam, init=None):
 		self.set_A(A)
