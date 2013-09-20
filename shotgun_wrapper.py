@@ -153,6 +153,9 @@ class ShotgunSolver(object):
 		
 
 	def solve_lasso(self, A, y, lam, init=None):
+		if (init and init[0] == None):
+			init = None
+
 		self.set_A(A)
 		self.set_y(y)
 		self.set_lambda(lam)
