@@ -4,6 +4,7 @@
 #include "common.h"
 
 class Shotgun {
+		std::string solver; // lasso / logreg
 		double lambda;
 		int N;
 		int d;
@@ -42,6 +43,7 @@ class Shotgun {
 
 	public:
 		Shotgun() {
+			solver = "lasso";
 			useOffset = 1;		
 			threshold = 1e-5;
 			maxIter = 5e6;
@@ -99,6 +101,10 @@ class Shotgun {
 				sd.y.push_back(data[e]);
 		}
 
+		void set_solver(std::string value) {
+			solver = value;
+		}
+
 		void set_lambda(double value) {
 			lambda = value;
 		}
@@ -120,19 +126,17 @@ class Shotgun {
 			offsetInitial = offset;
 		}
 
-		void run_lasso(double* result) {
-			omp_set_num_threads(numThreads);
-			solveLasso(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
-			for (int f = 0; f < d; f++)
-				result[f] = sd.x[f];
-			result[d] = sd.b;
-		}
-
-		void run_logreg(double* result) {
-			omp_set_num_threads(numThreads);
-			bool thingy = true;
-			int verbose = 0;
-			compute_logreg(&sd, lambda, threshold, maxIter, useOffset, verbose, thingy);
+		void run(double* result) {
+			if (numThreads > 0) {
+				omp_set_num_threads(numThreads);
+			}
+			if (solver == "lasso") {
+				solveLasso(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+			} else if (solver == "logreg") {
+				compute_logreg(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+			} else {
+				assert(false);
+			}
 			for (int f = 0; f < d; f++)
 				result[f] = sd.x[f];
 			result[d] = sd.b;
@@ -155,6 +159,10 @@ extern "C" {
 		s->set_y(data, length);
 	}
 
+	void Shotgun_set_solver(Shotgun* s, std::string value) {
+		s->set_solver(value);
+	}
+
 	void Shotgun_set_lambda(Shotgun* s, double value) {
 		s->set_lambda(value);
 	}
@@ -175,12 +183,9 @@ extern "C" {
 		s->set_initial_conditions(x, offset);
 	}
 
-	void Shotgun_run_lasso(Shotgun* s, double* result) {
-		s->run_lasso(result);
+	void Shotgun_run(Shotgun* s, double* result) {
+		s->run(result);
 	}
 
-	void Shotgun_run_logreg(Shotgun* s, double* result) {
-		s->run_logreg(result);
-	}
 }
 

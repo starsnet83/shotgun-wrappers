@@ -159,11 +159,11 @@ double g_b(double z) {
 
 
 // Compute A'A in parallel. Note: could also compute in demand?
-void initialize_all(int useOffset) {
+void
+initialize_all(int useOffset, double* initial_x = NULL, double initial_offset = NULL) {
     logregprob->x.resize(logregprob->nx);
     logregprob->Ax.resize(logregprob->ny);
     logregprob->expAx_pb.resize(logregprob->ny);
-    logregprob->b = 0.0;
     logregprob->Gmax.resize(1);
 
     active = (bool *) calloc(logregprob->nx,sizeof(bool));
@@ -175,19 +175,40 @@ void initialize_all(int useOffset) {
     neg_y = logregprob->ny-pos_y;
     assert(pos_y > 0 && neg_y > 0);
 
+    logregprob->b = 0.0;
     switch (useOffset) {
     case 0:
       break;
     case 1:
-      logregprob->b = std::log((double)pos_y) - std::log((double)neg_y);
+      if (initial_offset) {
+        logregprob->b = initial_offset;
+      } else {
+        logregprob->b = std::log((double)pos_y) - std::log((double)neg_y);
+      }
       break;
     default:
       assert(false); // In non-debug mode, simply do not use b.
     }
 
-    double exp_b = std::exp(logregprob->b);
-    for(int i=0; i<logregprob->ny; i++)
-      logregprob->expAx_pb[i] = exp_b;
+    // Initial conditions:	
+    if (initial_x) {
+      for (int i = 0; i < logregprob->nx; i++) {
+        if (initial_x[i] != 0) {
+          double col_value = initial_x[i];
+          logregprob->x[i] = col_value;
+          sparse_array& col = logregprob->A_cols[i];
+          int len = col.length();
+          for (int j = 0; j < len; j++) 
+            logregprob->Ax[col.idxs[j]] += col.values[j] * col_value;
+        }
+      }
+      for(int i=0; i<logregprob->ny; i++)
+        logregprob->expAx_pb[i] = std::exp(logregprob->Ax[i] + logregprob->b);
+    } else {
+      double exp_b = std::exp(logregprob->b);
+      for(int i=0; i<logregprob->ny; i++)
+        logregprob->expAx_pb[i] = exp_b;
+    }
 
     for(int i=0; i<logregprob->nx; i++) active[i] = true;
 
@@ -398,9 +419,8 @@ void shoot_logreg(int x_i, double lambda) {
   * has little effect. Also, it does not need to have a atomic array for maintaining Ax.
   * For the experiments in the paper, a special sequential code was used for fairness.
   */
-void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, int verbose, bool & all_zero) {
+void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, int verbose, double* initial_x, double initial_offset) {
 
-    all_zero = false;
     logregprob = prob;
     //double l1x, loglikelihood;
     int iterations = 0;//, t=0;
@@ -411,7 +431,7 @@ void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, i
 
     Gmax_old = 1e30;
     // Adjust threshold similarly as liblinear
-    initialize_all(useOffset);
+    initialize_all(useOffset, initial_x, initial_offset);
     term_threshold =  term_threshold*std::min(pos_y,neg_y)/double(logregprob->ny);
     
     while(true) {
@@ -465,7 +485,6 @@ void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, i
         // std::cout << active_size << std::endl;
         if (active_size == logregprob->nx) {
           printf("Encountered all zero solution! try to decrease lambda\n");
-          all_zero = true;
           break;              
         } else {
           Gmax_old = 1e30;
@@ -481,8 +500,6 @@ void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, i
         int l0=0;
         double obj = compute_objective_logreg(lambda, &l1x, &loglikelihood, &l0, NULL);
         printf("objective is: %g l1: %g loglikelihood %g l0: %d\n", obj, l1x, loglikelihood, l0); 
-	if (l1x == 0)	
-          all_zero = true;
       }
     }// end iterations
 
@@ -490,8 +507,6 @@ void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, i
       double l1x=0, loglikelihood=0;
       int l0=0;
       double obj = compute_objective_logreg(lambda, &l1x, &loglikelihood, &l0, NULL);
-      if (l1x == 0)	
-	all_zero = true;
       printf("objective is: %g l1: %g loglikelihood %g l0: %d\n", obj, l1x, loglikelihood, l0); 
     }
 

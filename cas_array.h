@@ -94,57 +94,61 @@ class cas_array {
                     : "memory");
       return ret;
     }
-    
-        
-     void mul(int idx, double fact) {
-          assert(idx<len);
-         #ifdef PADDED_ARRAY
-         idx <<= 3;
-         #endif
-        volatile double prev;
-        volatile double newval;
-        volatile double oldval;
-        do {
-            prev = arr[idx];
-            oldval = prev;
-            newval = prev*fact;
-        } while (!CAS(reinterpret_cast<long *>(&arr[idx]), *reinterpret_cast<volatile long *>(&prev), *reinterpret_cast<volatile long*>(&newval)));
-    }
-    
 
-    
-    void add(int idx, double delta) {
-         assert(idx<len);
-         #ifdef PADDED_ARRAY
-         idx <<= 3;
-         #endif
-        volatile double prev;
-        volatile double newval;
-        volatile double oldval;
-        do {
-            prev = arr[idx];
-            oldval = prev;
-            newval = prev + delta;
-        } while (!CAS(reinterpret_cast<long *>(&arr[idx]), *reinterpret_cast<volatile long *>(&prev), *reinterpret_cast<volatile long*>(&newval)));
-    }
 
+   // Use CAS to multiply fact into array[idx]
+   void mul(int idx, double fact) {
+     assert(idx<len);
+#ifdef PADDED_ARRAY
+     idx <<= 3;
+#endif
+     volatile double prev;
+     volatile double newval;
+     volatile double oldval;
+     do {
+       prev = arr[idx];
+       oldval = prev;
+       newval = prev*fact;
+     } while (!CAS(reinterpret_cast<long *>(&arr[idx]), *reinterpret_cast<volatile long *>(&prev), *reinterpret_cast<volatile long*>(&newval)));
+   }
+
+
+   // Use CAS to add delta to array[idx]
+   void add(int idx, double delta) {
+     assert(idx<len);
+#ifdef PADDED_ARRAY
+     idx <<= 3;
+#endif
+     volatile double prev;
+     volatile double newval;
+     volatile double oldval;
+     do {
+       prev = arr[idx];
+       oldval = prev;
+       newval = prev + delta;
+     } while (!CAS(reinterpret_cast<long *>(&arr[idx]), *reinterpret_cast<volatile long *>(&prev), *reinterpret_cast<volatile long*>(&newval)));
+   }
+
+
+   // Use CAS to set array[idx] = max(array[idx], delta)
    void max(int idx, double delta) {
-         assert(idx<len);
-         #ifdef PADDED_ARRAY
-         idx <<= 3;
-         #endif
-        volatile double prev;
-        volatile double newval;
-        volatile double oldval;
-        do {
-            prev = arr[idx];
-            oldval = prev;
-            newval = std::max((double)prev , delta);
-        } while (!CAS(reinterpret_cast<long *>(&arr[idx]), *reinterpret_cast<volatile long *>(&prev), *reinterpret_cast<volatile long*>(&newval)));
-    }
+     assert(idx<len);
+     #ifdef PADDED_ARRAY
+       idx <<= 3;
+     #endif
+     volatile double prev;
+     volatile double newval;
+     volatile double oldval;
+     do {
+       prev = arr[idx];
+       oldval = prev;
+       newval = std::max((double)prev , delta);
+     } while (!CAS(reinterpret_cast<long *>(&arr[idx]),
+                   *reinterpret_cast<volatile long *>(&prev),
+                   *reinterpret_cast<volatile long*>(&newval)));
+   }
 
 
-      
 };
 
 #endif
