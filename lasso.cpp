@@ -15,8 +15,8 @@
 */
 
 // Optimization problem
-//      \arg \min_x 0.5*||Ax-y||^2 + \lambda |x|_1
-//
+//      \arg \min_{x,b} 0.5*||Ax + b1 - y||^2 + \lambda |x|_1
+// where b1 is a scalar b times an all-ones vector
 
 #include "common.h"
 
@@ -55,41 +55,41 @@ void initialize(int useOffset, double* initial_x = NULL, double initial_offset =
     lassoprob->Ax.resize(lassoprob->ny);
     lassoprob->b = 0.0;
     switch (useOffset) {
-			case 0:
-				break;
-			case 1:
-				if (initial_offset) {
-					lassoprob->b = initial_offset;
-				} else {
-					for (int i = 0; i < lassoprob->ny; ++i)
-						lassoprob->b += lassoprob->y[i];
-					lassoprob->b /= lassoprob->ny;
-				}
-				break;
-			default:
-				assert(false); // In non-debug mode, simply do not use b.
+    case 0:
+      break;
+    case 1:
+      if (initial_offset) {
+        lassoprob->b = initial_offset;
+      } else {
+        for (int i = 0; i < lassoprob->ny; ++i)
+          lassoprob->b += lassoprob->y[i];
+        lassoprob->b /= lassoprob->ny;
+      }
+      break;
+    default:
+      assert(false); // In non-debug mode, simply do not use b.
     }
 
     #pragma omp for
     for(int i=0; i<lassoprob->nx; i++) {
-        initialize_feature(i);
+      initialize_feature(i);
     }
 
-		// Initial conditions:	
-	  if (initial_x) {
-			for (int i = 0; i < lassoprob->nx; i++) {
-				if (initial_x[i] != 0) {
-					double col_value = initial_x[i];
-					lassoprob->x[i] = col_value;
-					sparse_array& col = lassoprob->A_cols[i];
-					int len = col.length();
-					for (int j = 0; j < len; j++) 
-						lassoprob->Ax[col.idxs[j]] += col.values[j] * col_value;
-				}
-			}
-		}
-		
-}
+    // Initial conditions:	
+    if (initial_x) {
+      for (int i = 0; i < lassoprob->nx; i++) {
+        if (initial_x[i] != 0) {
+          double col_value = initial_x[i];
+          lassoprob->x[i] = col_value;
+          sparse_array& col = lassoprob->A_cols[i];
+          int len = col.length();
+          for (int j = 0; j < len; j++) 
+            lassoprob->Ax[col.idxs[j]] += col.values[j] * col_value;
+        }
+      }
+    }
+
+} // initialize
 
 valuetype_t soft_thresholdO(valuetype_t _lambda, valuetype_t shootDiff) {
     return (shootDiff > _lambda)* (_lambda - shootDiff) + 
@@ -160,49 +160,49 @@ void main_optimization_loop(double lambda, double threshold, int maxiter, int us
     int iterations = 0;
     int counter = 0;
     long long int num_of_shoots = 0;
-		bool converged;
+    bool converged;
 
     double *delta = new double[lassoprob->nx];
-		double max_change;
+    double max_change;
 
-		lambda = lambda * 2.0; // compensate for how objective function is implemented
+    lambda = lambda * 2.0; // compensate for how objective function is implemented
 
     do {
 
-				// Update counters:
-        iterations++;
-        counter++; // counts number of iterations for current lambda in regularization path
+      // Update counters:
+      iterations++;
+      counter++; // counts number of iterations for current lambda in regularization path
 
-				max_change = 0;
+      max_change = 0;
         
-				// Update offset value:
-        if (useOffset == 1) {
-          double old_b = lassoprob->b;
-          lassoprob->b = 0;
-          for (int i = 0; i < lassoprob->ny; ++i)
-            lassoprob->b += lassoprob->y[i] - lassoprob->Ax[i];
-          lassoprob->b /= lassoprob->ny;
-          if (old_b != lassoprob->b)
-            max_change = std::fabs(old_b - lassoprob->b);
-        }
+      // Update offset value:
+      if (useOffset == 1) {
+        double old_b = lassoprob->b;
+        lassoprob->b = 0;
+        for (int i = 0; i < lassoprob->ny; ++i)
+          lassoprob->b += lassoprob->y[i] - lassoprob->Ax[i];
+        lassoprob->b /= lassoprob->ny;
+        if (old_b != lassoprob->b)
+          max_change = std::fabs(old_b - lassoprob->b);
+      }
 
-        // Perfrom shoots on all coordinates in parallel:
-        #pragma omp parallel for  
-        for(int i=0; i<lassoprob->nx; i++) {
-            delta[i] = shoot(i, lambda);
-            max_change = (max_change < delta[i] ? delta[i] : max_change);
-				}
+      // Perfrom shoots on all coordinates in parallel:
+      #pragma omp parallel for  
+      for(int i=0; i<lassoprob->nx; i++) {
+        delta[i] = shoot(i, lambda);
+        max_change = (max_change < delta[i] ? delta[i] : max_change);
+      }
 
-        // Convergence check:
-        converged = (max_change <= threshold);
+      // Convergence check:
+      converged = (max_change <= threshold);
 
-				// Record number of shoots:
-        num_of_shoots += lassoprob->nx;
+      // Record number of shoots:
+      num_of_shoots += lassoprob->nx;
 
-				// Compute objective value:
-				//double l1x = 0, l2err = 0, l0x = 0;
-				//valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
-		} while (!converged && (iterations < maxiter || maxiter == 0));
+      // Compute objective value:
+      //double l1x = 0, l2err = 0, l0x = 0;
+      //valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
+    } while (!converged && (iterations < maxiter || maxiter == 0));
 
     delete[] delta;
 

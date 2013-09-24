@@ -4,6 +4,7 @@
 #include "common.h"
 
 class Shotgun {
+		std::string solver; // lasso / logreg
 		double lambda;
 		int N;
 		int d;
@@ -42,6 +43,7 @@ class Shotgun {
 
 	public:
 		Shotgun() {
+			solver = "lasso";
 			useOffset = 1;		
 			threshold = 1e-5;
 			maxIter = 5e6;
@@ -99,6 +101,10 @@ class Shotgun {
 				sd.y.push_back(data[e]);
 		}
 
+		void set_solver(std::string value) {
+			solver = value;
+		}
+
 		void set_lambda(double value) {
 			lambda = value;
 		}
@@ -124,7 +130,13 @@ class Shotgun {
 			if (numThreads > 0) {
 				omp_set_num_threads(numThreads);
 			}
-			solveLasso(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+                        if (solver == "lasso") {
+                          solveLasso(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+                        } else if (solver == "logreg") {
+                          compute_logreg(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+                        } else {
+                          assert(false);
+                        }
 			for (int f = 0; f < d; f++)
 				result[f] = sd.x[f];
 			result[d] = sd.b;
@@ -145,6 +157,10 @@ extern "C" {
 
 	void Shotgun_set_y(Shotgun* s, double* data, int length) {	
 		s->set_y(data, length);
+	}
+
+        void Shotgun_set_solver(Shotgun* s, std::string value) {
+		s->set_solver(value);
 	}
 
 	void Shotgun_set_lambda(Shotgun* s, double value) {

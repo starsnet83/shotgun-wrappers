@@ -74,30 +74,30 @@ struct feature {
 
 
 struct shotgun_data {
-    // Column-wise sparse matrix representation. 
-    std::vector<sparse_array> A_cols, A_rows;
+  // Column-wise sparse matrix representation. 
+  std::vector<sparse_array> A_cols, A_rows;
     
-    // Vector of observations
-    std::vector<valuetype_t> y;
-    std::vector<valuetype_t> x; 
-    std::vector<feature> feature_consts;
-    valuetype_t b; // offset
+  // Vector of observations
+  std::vector<valuetype_t> y;
+  std::vector<valuetype_t> x; 
+  std::vector<feature> feature_consts;
+  valuetype_t b; // offset
     
-    // Problem size and configuration
-    int nx;  // Number of features/weights
-    int ny;  // Number of datapoints
+  // Problem size and configuration
+  int nx;  // Number of features/weights
+  int ny;  // Number of datapoints
     
-    // Lookup tables for optimization
-    cas_array<valuetype_t> Ax;
-    cas_array<valuetype_t> expAx;
-    cas_array<double> Gmax;
+  // Lookup tables for optimization
+  cas_array<valuetype_t> Ax;
+  cas_array<valuetype_t> expAx_pb; // exp(Ax + b)
+  cas_array<double> Gmax;
 };
 
 void convert_2_mat(const char * filename, shotgun_data * prob);
 void convert_2_vec(const char * filename, shotgun_data * prob);
 double solveLasso(shotgun_data  * probdef, double lambda, double threshold, int maxiter, int useOffset, int verbose, double* initial_x = NULL, double initial_offset = NULL);
 
-void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int verbose, bool &all_zero);
+void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, int verbose, double* initial_x = NULL, double initial_offset = NULL);
 void write_to_file(const char * filename, int * I, int * J, double * val, int M, int N, int nnz);
 
 #endif
