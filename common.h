@@ -97,7 +97,7 @@ void convert_2_mat(const char * filename, shotgun_data * prob);
 void convert_2_vec(const char * filename, shotgun_data * prob);
 double solveLasso(shotgun_data  * probdef, double lambda, double threshold, int maxiter, int useOffset, int verbose, double* initial_x = NULL, double initial_offset = NULL);
 
-void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int verbose, bool &all_zero);
+void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, int verbose, bool &all_zero);
 void write_to_file(const char * filename, int * I, int * J, double * val, int M, int N, int nnz);
 
 #endif

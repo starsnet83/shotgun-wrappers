@@ -120,11 +120,19 @@ class Shotgun {
 			offsetInitial = offset;
 		}
 
-		void run(double* result) {
-			if (numThreads > 0) {
-				omp_set_num_threads(numThreads);
-			}
+		void run_lasso(double* result) {
+			omp_set_num_threads(numThreads);
 			solveLasso(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+			for (int f = 0; f < d; f++)
+				result[f] = sd.x[f];
+			result[d] = sd.b;
+		}
+
+		void run_logreg(double* result) {
+			omp_set_num_threads(numThreads);
+			bool thingy = true;
+			int verbose = 0;
+			compute_logreg(&sd, lambda, threshold, maxIter, useOffset, verbose, thingy);
 			for (int f = 0; f < d; f++)
 				result[f] = sd.x[f];
 			result[d] = sd.b;
@@ -167,8 +175,12 @@ extern "C" {
 		s->set_initial_conditions(x, offset);
 	}
 
-	void Shotgun_run(Shotgun* s, double* result, long length) {
-		s->run(result);
+	void Shotgun_run_lasso(Shotgun* s, double* result) {
+		s->run_lasso(result);
+	}
+
+	void Shotgun_run_logreg(Shotgun* s, double* result) {
+		s->run_logreg(result);
 	}
 }
 

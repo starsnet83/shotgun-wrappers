@@ -73,7 +73,7 @@ class ShotgunSolver(object):
 		offsetArg = ctypes.c_double(offset)
 		lib.Shotgun_set_initial_conditions(self.obj, wArg, offsetArg)
 
-	def run(self, initialConditions):
+	def run_lasso(self, initialConditions):
 		# Runs shotgun-lasso
 		# Returns a solution object with several attributes
 
@@ -127,7 +127,7 @@ class ShotgunSolver(object):
 		while True:
 			# Run solver:
 			resultArg = result.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-			lib.Shotgun_run(self.obj, resultArg, len(result))
+			lib.Shotgun_run_lasso(self.obj, resultArg, len(result))
 
 			# Try to make sure things converged (bit of a hack for now):
 			offset = result[-1]
@@ -159,4 +159,13 @@ class ShotgunSolver(object):
 		self.set_A(A)
 		self.set_y(y)
 		self.set_lambda(lam)
-		return self.run(init)
+		return self.run_lasso(init)
+
+	def solve_logreg(self, A, y, lam, init=None):
+		if (init and init[0] == None):
+			init = None
+
+		self.set_A(A)
+		self.set_y(y)
+		self.set_lambda(lam)
+		return self.run_logreg(init)
