@@ -4,7 +4,6 @@
 #include "common.h"
 
 class Shotgun {
-		std::string solver; // lasso / logreg
 		double lambda;
 		int N;
 		int d;
@@ -43,7 +42,6 @@ class Shotgun {
 
 	public:
 		Shotgun() {
-			solver = "lasso";
 			useOffset = 1;		
 			threshold = 1e-5;
 			maxIter = 5e6;
@@ -101,10 +99,6 @@ class Shotgun {
 				sd.y.push_back(data[e]);
 		}
 
-		void set_solver(std::string value) {
-			solver = value;
-		}
-
 		void set_lambda(double value) {
 			lambda = value;
 		}
@@ -126,7 +120,7 @@ class Shotgun {
 			offsetInitial = offset;
 		}
 
-		void run(double* result) {
+		void run(double* result, std::string solver) {
 			if (numThreads > 0) {
 				omp_set_num_threads(numThreads);
 			}
@@ -159,10 +153,6 @@ extern "C" {
 		s->set_y(data, length);
 	}
 
-	void Shotgun_set_solver(Shotgun* s, std::string value) {
-		s->set_solver(value);
-	}
-
 	void Shotgun_set_lambda(Shotgun* s, double value) {
 		s->set_lambda(value);
 	}
@@ -183,8 +173,12 @@ extern "C" {
 		s->set_initial_conditions(x, offset);
 	}
 
-	void Shotgun_run(Shotgun* s, double* result) {
-		s->run(result);
+	void Shotgun_run_lasso(Shotgun* s, double* result) {
+		s->run(result, "lasso");
+	}
+	
+	void Shotgun_run_logreg(Shotgun* s, double* result) {
+		s->run(result, "logreg");
 	}
 
 }

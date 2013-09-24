@@ -7,7 +7,8 @@ import os
 dir = os.path.dirname(__file__)
 libraryPath = os.path.join(dir, 'shotgun_api.so')
 lib = ctypes.cdll.LoadLibrary(libraryPath)
-lib.Shotgun_run.restype = ctypes.POINTER(ctypes.c_double)
+lib.Shotgun_run_lasso.restype = ctypes.POINTER(ctypes.c_double)
+lib.Shotgun_run_logreg.restype = ctypes.POINTER(ctypes.c_double)
 
 # Define Shotgun interface:
 class ShotgunSolver(object):
@@ -166,6 +167,34 @@ class ShotgunSolver(object):
 			init = None
 
 		self.set_A(A)
+		self.load_A(A)
 		self.set_y(y)
 		self.set_lambda(lam)
 		return self.run_logreg(init)
+
+	def run_logreg(self, init):
+		# Assumes y and lambda are already loaded
+		self.load_A(self.A)	
+		d = self.A.shape[1]
+
+		if (init):
+			self.set_initial_conditions(init)
+
+		# Result vector:
+		result = np.zeros(d + 1)	
+
+		# Run solver:
+		resultArg = result.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
+		lib.Shotgun_run_logreg(self.obj, resultArg, len(result))
+
+		w = result[0:-1]
+		offset = result[-1]
+		#residuals = A * np.mat(w).T + offset - np.mat(self.y).T
+		#obj = 0.5*np.linalg.norm(residuals, ord=2)**2 + self.lam*np.linalg.norm(w, ord=1)
+
+		sol = lambda:0
+		sol.w = w
+		sol.offset = offset
+		#sol.residuals = residuals
+		#sol.obj = obj
+		return sol
