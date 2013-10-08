@@ -87,16 +87,19 @@ class Shotgun {
 					col++;
 					col_end_i = indptr[col+1];
 				}
-				add_nonzero(row, col, data[i++]);	
+				add_nonzero(row, col, data[i]);	
+				i++;
 			}
+			return;
 		}
 
 		void set_y(double* data, int N) {
 			// Make sure that vector is empty:
-			sd.y.clear(); 
+			//sd.y.clear(); 
 			sd.y.reserve(N);
-			for (int e=0; e < N; e++)
-				sd.y.push_back(data[e]);
+			for (int e=0; e < N; e++){
+				sd.y[e] = data[e];
+			}
 		}
 
 		void set_lambda(double value) {
@@ -139,7 +142,10 @@ class Shotgun {
 };
 
 extern "C" {
-	Shotgun* Shotgun_new() { return new Shotgun(); }
+	Shotgun* Shotgun_new() { 
+		Shotgun* s = new Shotgun();
+		return s; 
+	}
 
 	void Shotgun_set_A(Shotgun* s, double* data, int N, int d, long* strides) {
 		s->set_A(data, N, d, strides);
@@ -166,7 +172,7 @@ extern "C" {
 	}
 
 	void Shotgun_set_num_threads(Shotgun* s, int value) {
-		s->set_num_threads(value);
+		//s->set_num_threads(value);
 	}
 
 	void Shotgun_set_initial_conditions(Shotgun* s, double* x, double offset) {
