@@ -1,4 +1,4 @@
-FLAGS = -D_GNU_SOURCE -fno-omit-frame-pointer -pthread -Wall -fopenmp -lgomp
+FLAGS = -I/homes/grail/tbjohns/usr/local/include/python2.7 -g -D_GNU_SOURCE -fno-omit-frame-pointer -pthread -Wall -fopenmp -lgomp
 CXX = g++
 
 all: shotgun_api.o lasso.o logreg.o shared.o

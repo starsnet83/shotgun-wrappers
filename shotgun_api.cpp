@@ -1,3 +1,4 @@
+#include "Python.h"
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
@@ -7,7 +8,7 @@ class Shotgun {
 		double lambda;
 		int N;
 		int d;
-		shotgun_data sd;
+		shotgun_data* sd;
 		double threshold;
 		int maxIter;
 		int useOffset;
@@ -17,27 +18,27 @@ class Shotgun {
 		double* xInitial;
 		double offsetInitial;
 
-		void prep_shape(int N, int d) {
+		void prep_shape(unsigned int N, unsigned int d) {
 			this->N = N;
 			this->d = d;
 
-			sd.ny = N;
-			sd.nx = d;
+			sd->ny = N;
+			sd->nx = d;
+			
 			
 			// Make sure that matrix is empty:
-			sd.A_cols.clear();
-			sd.A_rows.clear();
+			sd->A_cols.clear();
+			sd->A_rows.clear();
 			
-			sd.A_rows.resize(N);
-			sd.A_cols.resize(d);
-
+			sd->A_rows.resize(N);
+			sd->A_cols.resize(d);
 		}
 
-		void add_nonzero(int row, int col, double val) {
+		void add_nonzero(unsigned int row, unsigned int col, double val) {
 			if (val == 0)
 				return;
-			sd.A_cols[col].add(row, val);
-			sd.A_rows[row].add(col, val);
+			sd->A_cols[col].add(row, val);
+			sd->A_rows[row].add(col, val);
 		}
 
 	public:
@@ -49,10 +50,11 @@ class Shotgun {
 			numThreads = 1;
 			xInitial = NULL;
 			offsetInitial = NULL;
+			sd = new shotgun_data();
 		}
 	
 		void set_A(double* data, int N, int d, long* strides) {
-	
+ 	
 			bool columnMajor = (strides[0] < strides[1]);
 
 			// Set N, set d, allocate memory, etc:
@@ -72,17 +74,17 @@ class Shotgun {
 			}
 		}
 
-		void set_A_sparse(double* data, int* indices, int* indptr, int nnz, int N, int d) {
+		void set_A_sparse(double* data, unsigned int* indices, unsigned int* indptr, unsigned int nnz, unsigned int N, unsigned int d) {
 			// Assumes csc sparse matrix format
 
 			// Set N, set d, allocate memory, etc:
 			prep_shape(N, d);
 
-			int i = 0;
-			int col = 0;
-			int col_end_i = indptr[1];
+			unsigned int i = 0;
+			unsigned int col = 0;
+			unsigned int col_end_i = indptr[1];
 			while (i < nnz) {
-				int row = indices[i];
+				unsigned int row = indices[i];
 				if (i == col_end_i) {
 					col++;
 					col_end_i = indptr[col+1];
@@ -95,11 +97,9 @@ class Shotgun {
 
 		void set_y(double* data, int N) {
 			// Make sure that vector is empty:
-			//sd.y.clear(); 
-			sd.y.reserve(N);
-			for (int e=0; e < N; e++){
-				sd.y[e] = data[e];
-			}
+			sd->y.clear(); 
+			for (int e=0; e < N; e++)
+				sd->y.push_back(data[e]);
 		}
 
 		void set_lambda(double value) {
@@ -128,15 +128,15 @@ class Shotgun {
 				omp_set_num_threads(numThreads);
 			}
 			if (solver == "lasso") {
-				solveLasso(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+				solveLasso(sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
 			} else if (solver == "logreg") {
-				compute_logreg(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+				compute_logreg(sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
 			} else {
 				assert(false);
 			}
 			for (int f = 0; f < d; f++)
-				result[f] = sd.x[f];
-			result[d] = sd.b;
+				result[f] = sd->x[f];
+			result[d] = sd->b;
 		}
 
 };
@@ -151,7 +151,7 @@ extern "C" {
 		s->set_A(data, N, d, strides);
 	}
 
-	void Shotgun_set_A_sparse(Shotgun* s, double* data, int* indices, int* indptr, int nnz, int N, int d) {
+	void Shotgun_set_A_sparse(Shotgun* s, double* data, unsigned int* indices, unsigned int* indptr, unsigned int nnz, unsigned int N, unsigned int d) {
 		s->set_A_sparse(data, indices, indptr, nnz, N, d);
 	}
 

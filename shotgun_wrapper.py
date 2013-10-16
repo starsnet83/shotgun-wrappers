@@ -43,10 +43,10 @@ class ShotgunSolver(object):
 			if (not sparse.isspmatrix_csc(A)):
 				A = A.tocsc()
 			# Sparse matrix, need to pass indices and values as separate arrays
-			indicesArg = A.indices.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
+			indicesArg = A.indices.ctypes.data_as(ctypes.POINTER(ctypes.c_uint))
 			dataArg = A.data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-			indptrArg = A.indptr.ctypes.data_as(ctypes.POINTER(ctypes.c_int))
-			lib.Shotgun_set_A_sparse(self.obj, dataArg, indicesArg, indptrArg, ctypes.c_int(A.nnz), ctypes.c_int(N), ctypes.c_int(d))
+			indptrArg = A.indptr.ctypes.data_as(ctypes.POINTER(ctypes.c_uint))
+			lib.Shotgun_set_A_sparse(self.obj, dataArg, indicesArg, indptrArg, ctypes.c_uint(A.nnz), ctypes.c_uint(N), ctypes.c_uint(d))
 		else:
 			# Dense matrix, pass entire matrix as a big array
 			matrixArg = A.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
@@ -133,7 +133,7 @@ class ShotgunSolver(object):
 				currentIndices = corIndices
 
 			# Form active matrix:
-			if (len(currentIndices) > 1):
+			if (len(currentIndices) > 1 or sparse.issparse(self.A)):
 				currentA = self.A[:, currentIndices]
 			else:
 				# avoid an issue with 1d np arrays here...
@@ -165,7 +165,7 @@ class ShotgunSolver(object):
 			w[currentIndices] = sol.w
 
 			# Check if done:
-			if (abs(sol.obj - obj) < 1e-5):
+			if (abs(sol.obj - obj) < 1e-4):
 				break
 			else:
 				obj = sol.obj
@@ -210,13 +210,16 @@ class ShotgunSolver(object):
 
 	def solve_lasso(self, A, y, lam, init=None):
 		"""Solves lasso problem"""
-		if (init and init[0] == None):
-			init = None
+		useSK = False
 
-		self.attach_A(A)
-		self.load_y(y)
-		self.set_lambda(lam)
-		return self.run_lasso(init)
+		if (not useSK):
+			if (init and init[0] == None):
+				init = None
+
+			self.attach_A(A)
+			self.load_y(y)
+			self.set_lambda(lam)
+			return self.run_lasso(init)
 
 
 
