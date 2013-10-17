@@ -7,15 +7,32 @@ from IPython import embed
 # Load Shotgun library:
 dir = os.path.dirname(__file__)
 libraryPath = os.path.join(dir, 'shotgun_api.so')
-lib = np.ctypeslib.load_library("shotgun_api.so", dir)
+ctypes.pydll.LoadLibrary("shotgunpy/shotgun_api.so")
+lib = ctypes.PyDLL("shotgun_api.so")
+#lib = np.ctypeslib.load_library("shotgun_api.so", dir)
 
 # Define result types:
+lib.Shotgun_new.restype = ctypes.c_void_p
 lib.Shotgun_run_lasso.restype = ctypes.POINTER(ctypes.c_double)
+lib.Shotgun_run_lasso.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)]
 lib.Shotgun_run_logreg.restype = ctypes.POINTER(ctypes.c_double)
+lib.Shotgun_run_logreg.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double)]
 lib.Shotgun_set_A_sparse.restype = None
+lib.Shotgun_set_A_sparse.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double), ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint), ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]
 lib.Shotgun_set_A.restype = None
+lib.Shotgun_set_A.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double), ctypes.c_int, ctypes.c_int, ctypes.POINTER(ctypes.c_long)]
 lib.Shotgun_set_y.restype = None
+lib.Shotgun_set_y.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double), ctypes.c_int]
 lib.Shotgun_set_lambda.restype = None
+lib.Shotgun_set_lambda.argtypes = [ctypes.c_void_p, ctypes.c_double]
+lib.Shotgun_set_threshold.restype = None
+lib.Shotgun_set_threshold.argtypes = [ctypes.c_void_p, ctypes.c_double]
+lib.Shotgun_set_num_threads.restype = None
+lib.Shotgun_set_num_threads.argtypes = [ctypes.c_void_p, ctypes.c_int]
+lib.Shotgun_set_use_offset.restype = None
+lib.Shotgun_set_use_offset.argtypes = [ctypes.c_void_p, ctypes.c_int]
+lib.Shotgun_set_initial_conditions.restype = None
+lib.Shotgun_set_initial_conditions.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_double), ctypes.c_double]
 
 # Define Shotgun interface:
 class ShotgunSolver(object):
@@ -71,6 +88,7 @@ class ShotgunSolver(object):
 	def set_tolerance(self, value):
 		"""Passes stopping threshold to C library - algorithm completes
 		when smallest change is less than this tolerance"""
+		print self.obj
 		lib.Shotgun_set_threshold(self.obj, ctypes.c_double(value))
 
 	def set_use_offset(self, value):

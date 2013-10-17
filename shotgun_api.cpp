@@ -1,4 +1,3 @@
-#include "Python.h"
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
@@ -107,7 +106,10 @@ class Shotgun {
 		}
 	
 		void set_threshold(double value) {
-			threshold = value;
+			std::cout << value << std::endl;
+			std::cout << "HI" << std::endl;
+			this->threshold = double(value);
+			std::cout << "Returning...\n";
 		}
 
 		void set_use_offset(int value) {
@@ -144,6 +146,7 @@ class Shotgun {
 extern "C" {
 	Shotgun* Shotgun_new() { 
 		Shotgun* s = new Shotgun();
+		std::cout << s << std::endl;
 		return s; 
 	}
 
@@ -164,6 +167,7 @@ extern "C" {
 	}
 
 	void Shotgun_set_threshold(Shotgun* s, double value) {
+		std::cout << s << std::endl;
 		s->set_threshold(value);
 	}
 
