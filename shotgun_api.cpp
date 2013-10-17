@@ -7,7 +7,7 @@ class Shotgun {
 		double lambda;
 		int N;
 		int d;
-		shotgun_data* sd;
+		shotgun_data sd;
 		double threshold;
 		int maxIter;
 		int useOffset;
@@ -21,23 +21,23 @@ class Shotgun {
 			this->N = N;
 			this->d = d;
 
-			sd->ny = N;
-			sd->nx = d;
+			sd.ny = N;
+			sd.nx = d;
 			
 			
 			// Make sure that matrix is empty:
-			sd->A_cols.clear();
-			sd->A_rows.clear();
+			sd.A_cols.clear();
+			sd.A_rows.clear();
 			
-			sd->A_rows.resize(N);
-			sd->A_cols.resize(d);
+			sd.A_rows.resize(N);
+			sd.A_cols.resize(d);
 		}
 
 		void add_nonzero(unsigned int row, unsigned int col, double val) {
 			if (val == 0)
 				return;
-			sd->A_cols[col].add(row, val);
-			sd->A_rows[row].add(col, val);
+			sd.A_cols[col].add(row, val);
+			sd.A_rows[row].add(col, val);
 		}
 
 	public:
@@ -49,7 +49,6 @@ class Shotgun {
 			numThreads = 1;
 			xInitial = NULL;
 			offsetInitial = NULL;
-			sd = new shotgun_data();
 		}
 	
 		void set_A(double* data, int N, int d, long* strides) {
@@ -96,9 +95,9 @@ class Shotgun {
 
 		void set_y(double* data, int N) {
 			// Make sure that vector is empty:
-			sd->y.clear(); 
+			sd.y.resize(N);
 			for (int e=0; e < N; e++)
-				sd->y.push_back(data[e]);
+				sd.y[e] = data[e];
 		}
 
 		void set_lambda(double value) {
@@ -130,15 +129,15 @@ class Shotgun {
 				omp_set_num_threads(numThreads);
 			}
 			if (solver == "lasso") {
-				solveLasso(sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+				solveLasso(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
 			} else if (solver == "logreg") {
-				compute_logreg(sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
+				compute_logreg(&sd, lambda, threshold, maxIter, useOffset, verbose, xInitial, offsetInitial);
 			} else {
 				assert(false);
 			}
 			for (int f = 0; f < d; f++)
-				result[f] = sd->x[f];
-			result[d] = sd->b;
+				result[f] = sd.x[f];
+			result[d] = sd.b;
 		}
 
 };
