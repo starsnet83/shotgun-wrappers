@@ -7,9 +7,9 @@ from IPython import embed
 # Load Shotgun library:
 dir = os.path.dirname(__file__)
 libraryPath = os.path.join(dir, 'shotgun_api.so')
-ctypes.pydll.LoadLibrary("shotgunpy/shotgun_api.so")
-lib = ctypes.PyDLL("shotgun_api.so")
-#lib = np.ctypeslib.load_library("shotgun_api.so", dir)
+lib = np.ctypeslib.load_library("shotgun_api.so", dir)
+#ctypes.pydll.LoadLibrary("shotgunpy/shotgun_api.so")
+#lib = ctypes.PyDLL("shotgun_api.so")
 
 # Define result types:
 lib.Shotgun_new.restype = ctypes.c_void_p
