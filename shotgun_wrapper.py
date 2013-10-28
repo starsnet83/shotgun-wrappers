@@ -8,8 +8,6 @@ from IPython import embed
 dir = os.path.dirname(__file__)
 libraryPath = os.path.join(dir, 'shotgun_api.so')
 lib = np.ctypeslib.load_library("shotgun_api.so", dir)
-#ctypes.pydll.LoadLibrary("shotgunpy/shotgun_api.so")
-#lib = ctypes.PyDLL("shotgun_api.so")
 
 # Define result types:
 lib.Shotgun_new.restype = ctypes.c_void_p
@@ -88,7 +86,6 @@ class ShotgunSolver(object):
 	def set_tolerance(self, value):
 		"""Passes stopping threshold to C library - algorithm completes
 		when smallest change is less than this tolerance"""
-		print self.obj
 		lib.Shotgun_set_threshold(self.obj, ctypes.c_double(value))
 
 	def set_use_offset(self, value):
@@ -138,8 +135,11 @@ class ShotgunSolver(object):
 		cutoff = self.activeSetCutoffRatio * self.lam
 		maxThreads = self.numThreads
 		obj = float('inf')
+		maxProblemDimension = 0
+		activeIterations = 0
 
 		while True:
+			activeIterations += 1
 			# Form active set based on correlation with current residual vector
 			# (most correlated features are included, other features are ignored):
 			subGrad = np.array(self.A.T * np.mat(residuals).T).flatten()
@@ -149,9 +149,14 @@ class ShotgunSolver(object):
 				currentIndices = np.union1d(corIndices, nonzeroIndices)
 			else:
 				currentIndices = corIndices
+			problemDimension = len(currentIndices)
+
+			# Keep track of size of largest problem:
+			if (problemDimension > maxProblemDimension):
+				maxProblemDimension = problemDimension
 
 			# Form active matrix:
-			if (len(currentIndices) > 1 or sparse.issparse(self.A)):
+			if (problemDimension > 1 or sparse.issparse(self.A)):
 				currentA = self.A[:, currentIndices]
 			else:
 				# avoid an issue with 1d np arrays here...
@@ -191,6 +196,8 @@ class ShotgunSolver(object):
 				offset = sol.offset
 
 		sol.w = w  # length d return sol
+		sol.maxProblemDimension = maxProblemDimension
+		sol.activeIterations = activeIterations
 		return sol
 
 	def solve_lasso_subproblem(self, A, init=None):
