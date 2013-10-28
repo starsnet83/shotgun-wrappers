@@ -235,16 +235,13 @@ class ShotgunSolver(object):
 
 	def solve_lasso(self, A, y, lam, init=None):
 		"""Solves lasso problem"""
-		useSK = False
+		if (init and init[0] == None):
+			init = None
 
-		if (not useSK):
-			if (init and init[0] == None):
-				init = None
-
-			self.attach_A(A)
-			self.load_y(y)
-			self.set_lambda(lam)
-			return self.run_lasso(init)
+		self.attach_A(A)
+		self.load_y(y)
+		self.set_lambda(lam)
+		return self.run_lasso(init)
 
 
 
