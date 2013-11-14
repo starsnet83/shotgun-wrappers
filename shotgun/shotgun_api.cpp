@@ -36,7 +36,7 @@ class Shotgun {
 		void add_nonzero(unsigned int row, unsigned int col, double val) {
 			if (val == 0)
 				return;
-			sd.A_cols[col].add(row, val);
+			this->sd.A_cols[col].add(row, val);
 			sd.A_rows[row].add(col, val);
 		}
 
