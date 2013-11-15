@@ -104,10 +104,8 @@ class cas_array {
 #endif
      volatile double prev;
      volatile double newval;
-     volatile double oldval;
      do {
        prev = arr[idx];
-       oldval = prev;
        newval = prev*fact;
      } while (!CAS(reinterpret_cast<long *>(&arr[idx]), *reinterpret_cast<volatile long *>(&prev), *reinterpret_cast<volatile long*>(&newval)));
    }
@@ -121,10 +119,8 @@ class cas_array {
 #endif
      volatile double prev;
      volatile double newval;
-     volatile double oldval;
      do {
        prev = arr[idx];
-       oldval = prev;
        newval = prev + delta;
      } while (!CAS(reinterpret_cast<long *>(&arr[idx]), *reinterpret_cast<volatile long *>(&prev), *reinterpret_cast<volatile long*>(&newval)));
    }
@@ -138,10 +134,8 @@ class cas_array {
      #endif
      volatile double prev;
      volatile double newval;
-     volatile double oldval;
      do {
        prev = arr[idx];
-       oldval = prev;
        newval = std::max((double)prev , delta);
      } while (!CAS(reinterpret_cast<long *>(&arr[idx]),
                    *reinterpret_cast<volatile long *>(&prev),

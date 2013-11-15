@@ -20,205 +20,164 @@
 
 #include "common.h"
 
-// Problem definition
-shotgun_data * lassoprob;
+void initialize_feature(shotgun_data *sd, int feat_idx) {
+	// Caches some values for the feat_idx'th column of A
 
+	sparse_array& col = sd->A_cols[feat_idx];
+	feature& feat = sd->feature_consts[feat_idx];
+	sd->x[feat_idx] = 0.0;
 
-// Major optimization: always keep updated vector 'Ax'
- 
-void initialize_feature(int feat_idx) {
-    sparse_array& col = lassoprob->A_cols[feat_idx];
-    feature& feat = lassoprob->feature_consts[feat_idx];
-    lassoprob->x[feat_idx] = 0.0;
-
-    // Precompute covariance of a feature
-    feat.covar = 0;
-    for(int i=0; i<col.length(); i++) {
-        feat.covar += sqr(col.values[i]);
-    }
-    feat.covar *= 2;
-    
-    // Precompute (Ay)_i
-    feat.Ay_i = 0.0;
-    feat.A1_i = 0.0;
-    for(int i=0; i<col.length(); i++) {
-      feat.Ay_i += col.values[i] * lassoprob->y[col.idxs[i]];
-      feat.A1_i += col.values[i];
-    }
-    feat.Ay_i *= 2;
-    feat.A1_i *= 2;
+	// Precompute norm of a feature:
+	feat.covar = 0;
+	for(int i=0; i<col.length(); i++) {
+			feat.covar += sqr(col.values[i]);
+	}
+	feat.covar *= 2;
+	
+	// Precompute (A^T y)_i:
+	feat.Ay_i = 0.0;
+	feat.A1_i = 0.0;
+	for(int i=0; i<col.length(); i++) {
+		feat.Ay_i += col.values[i] * sd->y[col.idxs[i]];
+		feat.A1_i += col.values[i];
+	}
+	feat.Ay_i *= 2;
+	feat.A1_i *= 2;
 }
 
-void initialize(int useOffset, double* initial_x = NULL, double initial_offset = NULL) {
-    lassoprob->feature_consts.reserve(lassoprob->nx);
-    lassoprob->x.resize(lassoprob->nx);
-    lassoprob->Ax.resize(lassoprob->ny);
-    lassoprob->b = 0.0;
-    switch (useOffset) {
-    case 0:
-      break;
-    case 1:
-      if (initial_offset) {
-        lassoprob->b = initial_offset;
-      } else {
-        for (int i = 0; i < lassoprob->ny; ++i)
-          lassoprob->b += lassoprob->y[i];
-        lassoprob->b /= lassoprob->ny;
-      }
-      break;
-    default:
-      assert(false); // In non-debug mode, simply do not use b.
-    }
+void initialize(shotgun_data *sd, int useOffset, double* initial_x = NULL, double initial_offset = 0.0) {
+	// Initializes problem, caching problem constants and initial conditions
 
-    #pragma omp for
-    for(int i=0; i<lassoprob->nx; i++) {
-      initialize_feature(i);
-    }
+	// Reserve space for weight vector and caching values:
+	sd->x.resize(sd->nx);
+	sd->feature_consts.reserve(sd->nx);
+	sd->Ax.resize(sd->ny);
 
-    // Initial conditions:	
-    if (initial_x) {
-      for (int i = 0; i < lassoprob->nx; i++) {
-        if (initial_x[i] != 0) {
-          double col_value = initial_x[i];
-          lassoprob->x[i] = col_value;
-          sparse_array& col = lassoprob->A_cols[i];
-          int len = col.length();
-          for (int j = 0; j < len; j++) 
-            lassoprob->Ax[col.idxs[j]] += col.values[j] * col_value;
-        }
-      }
-    }
+	// Initialize features (in parallel):
+	#pragma omp for
+	for(int i=0; i<sd->nx; i++) {
+		initialize_feature(sd, i);
+	}
 
-} // initialize
+	// Initialize offset:
+	sd->b = 0.0;
+	switch (useOffset) {
+	case 0:
+		break;
+	case 1:
+		// Initialize offset to initial condition if provided:
+		if (initial_offset) 
+			sd->b = initial_offset;
+		break;
+	default:
+		assert(false); // Offset must be 0 or 1
+	}
 
-valuetype_t soft_thresholdO(valuetype_t _lambda, valuetype_t shootDiff) {
-    return (shootDiff > _lambda)* (_lambda - shootDiff) + 
-	               (shootDiff < -_lambda) * (-_lambda- shootDiff) ;
+	// Initial weight vector values:
+	if (initial_x) {
+		for (int i = 0; i < sd->nx; i++) {
+			if (initial_x[i] != 0) {
+				double col_value = initial_x[i];
+				sd->x[i] = col_value;
+				sparse_array& col = sd->A_cols[i];
+				int len = col.length();
+				for (int j = 0; j < len; j++) 
+					sd->Ax[col.idxs[j]] += col.values[j] * col_value;
+			}
+		}
+	}
+
+} 
+
+valuetype_t soft_threshold(valuetype_t lambda, valuetype_t shootDiff) {
+	// Soft threshold function for applying shrinkage:
+	if (shootDiff > lambda) return lambda - shootDiff;
+	if (shootDiff < -lambda) return -lambda - shootDiff;
+	else return 0;
 }
 
-valuetype_t soft_threshold(valuetype_t _lambda, valuetype_t shootDiff) {
-  if (shootDiff > _lambda) return _lambda - shootDiff;
-  if (shootDiff < -_lambda) return -_lambda - shootDiff ;
-  else return 0;
-}
+double shoot(shotgun_data *sd, int x_i, valuetype_t lambda) {
+	
+	// Get feature and current weight:
+	feature& feat = sd->feature_consts[x_i];
+	valuetype_t oldvalue = sd->x[x_i];
 
-double shoot(int x_i, valuetype_t lambda) {
-    feature& feat = lassoprob->feature_consts[x_i];
-    valuetype_t oldvalue = lassoprob->x[x_i];
-    
-    if (feat.covar == 0.0) return 0.0; // Zero-column
-    
-    // Compute dotproduct A'_i*(Ax)
-    valuetype_t AtAxj = 0.0;
-    sparse_array& col = lassoprob->A_cols[x_i];
-    int len=col.length();
-    for(int i=0; i<len; i++) {
-        AtAxj += col.values[i] * lassoprob->Ax[col.idxs[i]];
-    }
-    
-    valuetype_t S_j =
-      2 * AtAxj - feat.covar * oldvalue - feat.Ay_i + lassoprob->b * feat.A1_i;
-    valuetype_t newvalue = soft_threshold(lambda,S_j)/feat.covar;
-    valuetype_t delta = (newvalue - oldvalue);
-    
-    // Update ax
-    if (delta != 0.0) {
-        for(int i=0; i<len; i++) {
-	       lassoprob->Ax.add(col.idxs[i], col.values[i] * delta);
-        }
-        
-        lassoprob->x[x_i] = newvalue;
-    }
+	// Return if feature is all zeros:
+	if (feat.covar == 0.0) return 0.0;
+	
+	// Compute A_i^T*(Ax):
+	valuetype_t AtAxj = 0.0;
+	sparse_array& col = sd->A_cols[x_i];
+	int len=col.length();
+	for(int i=0; i<len; i++) {
+			AtAxj += col.values[i] * sd->Ax[col.idxs[i]];
+	}
+	
+	// New value without regularization:
+	valuetype_t proposal =
+		2 * AtAxj - feat.covar * oldvalue - feat.Ay_i + sd->b * feat.A1_i;
+
+	// Apply shrinkage:
+	valuetype_t newvalue = soft_threshold(lambda, proposal)/feat.covar;
+
+	// Record difference:
+	valuetype_t delta = (newvalue - oldvalue);
+	
+	// Update Ax:
+	if (delta != 0.0) {
+		for(int i=0; i<len; i++) {
+		 sd->Ax.add(col.idxs[i], col.values[i] * delta);
+		}
+		sd->x[x_i] = newvalue;
+	}
 
 	return std::abs(delta);
 
 }
 
- valuetype_t compute_objective(valuetype_t _lambda, std::vector<valuetype_t>& x, double & l0x, valuetype_t * l1x = NULL, valuetype_t * l2err = NULL) {
-    double least_sqr = 0;
+void main_optimization_loop(shotgun_data *sd, double lambda, double threshold, int maxiter, int useOffset) {
 
-    for (int i=0; i<lassoprob->ny; i++) {
-        least_sqr += (lassoprob->Ax[i] + lassoprob->b - lassoprob->y[i])
-          * (lassoprob->Ax[i] + lassoprob->b - lassoprob->y[i]);
-    }
+	bool converged;
+	double delta;
+	double max_change;
+	int itr = 0;
 
-    // Penalty check for feature 0
-    double penalty = 0.0;
-    for(int i=0; i<lassoprob->nx; i++) {
-        penalty += std::abs(lassoprob->x[i]);
-        l0x += (lassoprob->x[i] == 0);
-    }
-    if (l1x != NULL) *l1x = penalty;
-    if (l2err != NULL) *l2err = least_sqr;
-    return penalty * _lambda + least_sqr;
-}
+	lambda *= 2.0;  // Objective function is implemented without the leading 1/2
 
+	// Loop until convergence:
+	do {
+	
+		itr++;
+		max_change = 0.0;
+			
+		// Update offset value (no regularization):
+		if (useOffset) {
+			double old_b = sd->b;
+			sd->b = 0;
+			for (int i = 0; i < sd->ny; ++i)
+				sd->b += sd->y[i] - sd->Ax[i];
+			sd->b /= sd->ny;
+			if (old_b != sd->b)
+				max_change = std::fabs(old_b - sd->b);
+		}
 
+		// Perfrom shoots on all coordinates in parallel (round robin):
+		#pragma omp parallel for  
+		for(int i=0; i<sd->nx; i++) {
+			delta = shoot(sd, i, lambda);
+			max_change = (max_change < delta ? delta : max_change);
+		}
 
-void main_optimization_loop(double lambda, double threshold, int maxiter, int useOffset, int verbose) {
+		// Convergence check:
+		converged = (max_change <= threshold);
 
-    int iterations = 0;
-    int counter = 0;
-    long long int num_of_shoots = 0;
-    bool converged;
-
-    double *delta = new double[lassoprob->nx];
-    double max_change;
-
-    lambda = lambda * 2.0; // compensate for how objective function is implemented
-
-    do {
-
-      // Update counters:
-      iterations++;
-      counter++; // counts number of iterations for current lambda in regularization path
-
-      max_change = 0;
-        
-      // Update offset value:
-      if (useOffset == 1) {
-        double old_b = lassoprob->b;
-        lassoprob->b = 0;
-        for (int i = 0; i < lassoprob->ny; ++i)
-          lassoprob->b += lassoprob->y[i] - lassoprob->Ax[i];
-        lassoprob->b /= lassoprob->ny;
-        if (old_b != lassoprob->b)
-          max_change = std::fabs(old_b - lassoprob->b);
-      }
-
-      // Perfrom shoots on all coordinates in parallel:
-      #pragma omp parallel for  
-      for(int i=0; i<lassoprob->nx; i++) {
-        delta[i] = shoot(i, lambda);
-        max_change = (max_change < delta[i] ? delta[i] : max_change);
-      }
-
-      // Convergence check:
-      converged = (max_change <= threshold);
-
-      // Record number of shoots:
-      num_of_shoots += lassoprob->nx;
-
-      // Compute objective value:
-      //double l1x = 0, l2err = 0, l0x = 0;
-      //valuetype_t obj = compute_objective(lambda, lassoprob->x, l0x, &l1x, &l2err);
-    } while (!converged && (iterations < maxiter || maxiter == 0));
-
-    delete[] delta;
+	} while (!converged && (itr < maxiter || maxiter == 0));
 
 }
 
-/**
- * @param  useOffset  If 0, do not use offset b.  If 1, use offset.
- */
-double solveLasso(shotgun_data  * probdef, double lambda, double threshold, int maxiter, int useOffset, int verbose, double* initial_x, double initial_offset) {
-    lassoprob = probdef;
-
-		//double *initial_x = NULL;
-		//double initial_offset = NULL;
-    initialize(useOffset, initial_x, initial_offset);
-    main_optimization_loop(lambda, threshold, maxiter, useOffset, verbose);
-    return 0;
+double solveLasso(shotgun_data *sd, double lambda, double threshold, int maxiter, int useOffset, double* initial_x, double initial_offset) {
+	initialize(sd, useOffset, initial_x, initial_offset);
+	main_optimization_loop(sd, lambda, threshold, maxiter, useOffset);
+	return 0;
 }
-
 

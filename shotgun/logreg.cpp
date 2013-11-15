@@ -419,8 +419,9 @@ void shoot_logreg(int x_i, double lambda) {
   * has little effect. Also, it does not need to have a atomic array for maintaining Ax.
   * For the experiments in the paper, a special sequential code was used for fairness.
   */
-void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, int verbose, double* initial_x, double initial_offset) {
+void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, double* initial_x, double initial_offset) {
 
+		int verbose = 0;
     logregprob = prob;
     //double l1x, loglikelihood;
     int iterations = 0;//, t=0;

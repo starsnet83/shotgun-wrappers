@@ -95,9 +95,9 @@ struct shotgun_data {
 
 void convert_2_mat(const char * filename, shotgun_data * prob);
 void convert_2_vec(const char * filename, shotgun_data * prob);
-double solveLasso(shotgun_data  * probdef, double lambda, double threshold, int maxiter, int useOffset, int verbose, double* initial_x = NULL, double initial_offset = NULL);
+double solveLasso(shotgun_data  *sd, double lambda, double threshold, int maxiter, int useOffset, double* initial_x, double initial_offset);
 
-void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, int verbose, double* initial_x = NULL, double initial_offset = NULL);
+void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, double* initial_x, double initial_offset);
 
 void write_to_file(const char * filename, int * I, int * J, double * val, int M, int N, int nnz);
 
