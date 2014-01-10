@@ -145,7 +145,7 @@ class ShotgunSolver(object):
 		On the argument A.  Assumes y and lambda are already loaded.
         Returned residuals = - y .* (A w + offset)."""
 
-        # Set-up:
+		# Set-up:
 		self.load_A(A)
 		self.load_y(y)
 		self.set_lambda(lam)
@@ -163,17 +163,19 @@ class ShotgunSolver(object):
 		# Form results:
 		w = result[0:-1]
 		offset = result[-1]
-		residuals = - (A * w + offset)
+		residuals = - (np.dot(A, w) + offset)
+
 		for i in range(len(residuals)):
 			residuals[i] *= y[i]
 		obj = self.lam*np.linalg.norm(w, ord=1)
-		for i in range(len(residuals)):
-			if (residuals[i] > (-10) and residuals[i] < 10):
-				obj += np.sum(np.log(1.0 + np.exp(residuals[i])))
-			elif (residuals[i] <= (-10)):
-				obj += 0.0
+
+		# Computationally stable calculation of loss:
+		for r in residuals:
+			if (r > (-10) and r < 10):
+				obj += np.sum(np.log(1.0 + np.exp(r)))
 			else:
-				obj += residuals[i]
+				obj += r
+
 		sol = lambda:0
 		sol.w = w
 		sol.offset = offset

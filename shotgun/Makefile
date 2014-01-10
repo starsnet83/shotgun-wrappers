@@ -1,5 +1,5 @@
 FLAGS = -g -D_GNU_SOURCE -fno-omit-frame-pointer -pthread -Wall -fopenmp -O2
-CXX = g++-4.9
+CXX = g++
 
 all: shotgun_api.o lasso.o logreg.o shared.o
 	$(CXX) -shared -lgomp $(FLAGS) -o shotgun_api.so shotgun_api.o lasso.o logreg.o shared.o
