@@ -126,7 +126,7 @@ class ShotgunSolver(object):
 		sol = lambda:0
 		sol.w = w
 		sol.offset = offset
-		sol.residuals = residuals
+		sol.residuals = np.array(residuals).flatten()
 		sol.obj = obj
 		return sol
 
