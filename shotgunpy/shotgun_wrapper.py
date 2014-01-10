@@ -6,6 +6,7 @@ import os
 
 # Load Shotgun library:
 dir = os.path.dirname(__file__)
+dir = os.path.abspath(dir)
 libraryPath = os.path.join(dir, '../shotgun/shotgun_api.so')
 lib = np.ctypeslib.load_library(libraryPath, dir)
 
@@ -160,14 +161,14 @@ class ShotgunSolver(object):
 		w = result[0:-1]
 		offset = result[-1]
 		residuals = - np.multiply(A * np.mat(w).T + offset, np.mat(self.y).T)
-        obj = self.lam*np.linalg.norm(w, ord=1)
-        for i in range(len(residuals)):
-            if (residuals[i] > (-10) and residuals[i] < 10):
-                obj += np.sum(np.log(1.0 + np.exp(residuals[i])))
-            elif (residuals[i] <= (-10)):
-                obj += 0.0
-            else:
-                obj += residuals[i]
+		obj = self.lam*np.linalg.norm(w, ord=1) 
+		for i in range(len(residuals)):
+			if (residuals[i] > (-10) and residuals[i] < 10):
+				obj += np.sum(np.log(1.0 + np.exp(residuals[i])))
+			elif (residuals[i] <= (-10)):
+				obj += 0.0
+			else:
+				obj += residuals[i]
 		sol = lambda:0
 		sol.w = w
 		sol.offset = offset
