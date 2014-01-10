@@ -2,6 +2,7 @@ import numpy as np
 import scipy.sparse as sparse
 import ctypes
 import os
+import math
 
 
 # Load Shotgun library:
@@ -49,6 +50,8 @@ class ShotgunSolver(object):
 
 		(N, d) = A.shape
 		if (sparse.issparse(A)):
+			if np.isnan(sparse.csc_matrix.sum(A)):
+				raise Exception("Matrix A contains NaN values. Please remove.")
 			if (not sparse.isspmatrix_csc(A)):
 				A = A.tocsc()
 			# Sparse matrix, need to pass indices and values as separate arrays
@@ -160,8 +163,10 @@ class ShotgunSolver(object):
 		# Form results:
 		w = result[0:-1]
 		offset = result[-1]
-		residuals = - np.multiply(A * np.mat(w).T + offset, np.mat(self.y).T)
-		obj = self.lam*np.linalg.norm(w, ord=1) 
+		residuals = - (A * w + offset)
+		for i in range(len(residuals)):
+			residuals[i] *= y[i]
+		obj = self.lam*np.linalg.norm(w, ord=1)
 		for i in range(len(residuals)):
 			if (residuals[i] > (-10) and residuals[i] < 10):
 				obj += np.sum(np.log(1.0 + np.exp(residuals[i])))

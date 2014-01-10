@@ -1,4 +1,4 @@
-FLAGS = -g -D_GNU_SOURCE -fno-omit-frame-pointer -pthread -Wall -fopenmp
+FLAGS = -g -D_GNU_SOURCE -fno-omit-frame-pointer -pthread -Wall -fopenmp -O2
 CXX = g++-4.9
 
 all: shotgun_api.o lasso.o logreg.o shared.o

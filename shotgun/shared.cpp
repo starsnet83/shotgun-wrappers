@@ -41,6 +41,6 @@ double compute_objective_logreg(double lambda, double * l1x = NULL, double * log
   if (l1x != NULL) *l1x = penalty;
   if (loglikelihood != NULL) *loglikelihood = llhood;
   if (_l0 != NULL) *_l0 = l0;
-  if (testobj != NULL) *testobj = -penalty*lambda + llhood_test; 
-  return -penalty*lambda + llhood;
+  if (testobj != NULL) *testobj = penalty*lambda - llhood_test;
+  return penalty*lambda - llhood;
 }

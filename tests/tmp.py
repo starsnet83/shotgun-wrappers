@@ -6,14 +6,15 @@ import sys
 sys.path.append('..')
 import shotgunpy
 
-data = scipy.io.loadmat("/Users/jbradley/data/lasso/arcene.mat")
+data = scipy.io.loadmat("/Users/jbradley/data/lasso/a9a.mat")
 y = np.array(data['y'], dtype=np.float)
 A = data['A']
 
 solver = shotgunpy.ShotgunSolver()
 solver.set_use_offset(False)
-solver.set_maxIter(10)
-lam = .5
-sol = solver.solve_lasso(A,y,lam)
-sol.obj
+solver.set_maxIter(100)
+lam = .1
+sol = solver.solve_logreg(A,y,lam)
+print str(np.linalg.norm(sol.w,1))
+print str(sol.obj)
 
