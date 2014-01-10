@@ -101,7 +101,12 @@ class Shotgun {
 		}
 	
 		void set_threshold(double value) {
-			this->threshold = double(value);
+			this->threshold = value;
+		}
+
+		void set_maxIter(int value) {
+			assert(value >= 0);
+			this->maxIter = value;
 		}
 
 		void set_use_offset(int value) {
@@ -159,6 +164,10 @@ extern "C" {
 
 	void Shotgun_set_threshold(Shotgun* s, double value) {
 		s->set_threshold(value);
+	}
+
+	void Shotgun_set_maxIter(Shotgun* s, int value) {
+		s->set_maxIter(value);
 	}
 
 	void Shotgun_set_use_offset(Shotgun* s, int value) {

@@ -23,8 +23,25 @@
 //      A Comparison of Optimization Methods and Software for Large-scale L1-regularized Linear Classification
 //  
 // \author Aapo Kyrola akyrola@cs.cmu.edu
-// modified by Danny Bickson, CMU 
- 
+// modified by Danny Bickson (CMU), Joseph K. Bradley (CMU)
+
+/*
+  Sketch of how CDN code works.
+
+  compute_logreg() iterates:
+    shoot_logreg() on active set
+      shoot_cdn()
+    shoot_b()
+    
+  shoot_cdn()
+    logreg_cdn_derivandH(): first and second derivatives for feature
+    compute_d(): Newton direction
+    Iterate (line search):
+      g_xi(): change in objective
+        logreg_cdn_Ldiff()
+  shoot_b(): similar pattern to shoot_cdn()
+*/
+
 #include "common.h"
 
 
@@ -170,10 +187,20 @@ initialize_all(int useOffset, double* initial_x = NULL, double initial_offset = 
     xjneg = (double *) calloc(logregprob->nx,sizeof(double));
     pos_y = 0;
     for(int i=0; i<logregprob->ny; i++)  {
-        pos_y += (logregprob->y[i] == 1);
+      if (logregprob->y[i] == 1)
+        ++pos_y;
+      else if (logregprob->y[i] == -1 || logregprob->y[i] == 0)
+        ++neg_y;
+      else {
+        std::cerr << "ERROR: Shotgun logreg handles positive labels (+1) and negative labels (0 or -1) only.  Bad label given: " << logregprob->y[i] << std::endl;
+        assert(false);
+      }
     }
-    neg_y = logregprob->ny-pos_y;
-    assert(pos_y > 0 && neg_y > 0);
+    assert(pos_y + neg_y == logregprob->ny);
+    if (pos_y <= 0 || neg_y <= 0) {
+      std::cerr << "ERROR: Shotgun logreg requires at least some positive and some negative labels.  pos_y = " << pos_y << ", neg_y = " << neg_y << std::endl;
+      assert(false);
+    }
 
     logregprob->b = 0.0;
     switch (useOffset) {
