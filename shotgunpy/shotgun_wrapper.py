@@ -173,7 +173,7 @@ class ShotgunSolver(object):
 		for r in residuals:
 			if (r > (-10) and r < 10):
 				obj += np.sum(np.log(1.0 + np.exp(r)))
-			else:
+			elif (r >= 10):
 				obj += r
 
 		sol = lambda:0
