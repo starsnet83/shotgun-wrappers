@@ -42,7 +42,7 @@ class Shotgun {
 		Shotgun() {
 			// Defaults:
 			useOffset = 1;
-			threshold = 1e-5;
+			threshold = 1e-3;
 			maxIter = 5e6;
 			numThreads = 1;
 			xInitial = NULL;

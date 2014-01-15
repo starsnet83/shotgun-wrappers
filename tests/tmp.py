@@ -12,7 +12,7 @@ A = data['A']
 
 solver = shotgunpy.ShotgunSolver()
 solver.set_use_offset(False)
-solver.set_maxIter(100)
+solver.set_maxIter(10000)
 lam = .1
 sol = solver.solve_logreg(A,y,lam)
 print str(np.linalg.norm(sol.w,1))

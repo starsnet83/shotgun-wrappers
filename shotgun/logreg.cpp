@@ -40,6 +40,28 @@
       g_xi(): change in objective
         logreg_cdn_Ldiff()
   shoot_b(): similar pattern to shoot_cdn()
+
+  Stopping criterion:
+    term_threshold *= min{pos_y,neg_y} / ny  (Termination threshold is scaled.)
+    If Gmax <= term_threshold * Gmax_init,
+      If all features active,
+        All-zero solution.  Break.
+      Else
+        Reset all features to be active.  Continue.
+    Gmax is set in compute_d (and compute_d_b):
+      Ld0, Ldd0: gradient, second derivative for feature
+      Gp = Ld0 + 1
+      Gn = Ld0 - 1
+      Gmax <-- max_{features} violation for feature
+      violation for feature i with weight x[i]:
+        switch (x[i]):
+          case x[i]==0:
+            if (Gp<0)
+          case x[i]>0:
+          case x[i]<0:
+        
+For each feature,
+        
 */
 
 #include "common.h"
@@ -51,7 +73,7 @@ shotgun_data * logregprob;
 double cdn_beta = 0.5;
 double cdn_sigma = 0.01;
 
-double Gmax;
+//double Gmax;
 double Gmax_old;
 double Gmax_init;
 double *  xjneg; // for each feature j, sum of values over negative examples
@@ -72,10 +94,12 @@ inline void swap(int &t1, int &t2) { int tmp=t2; t2=t1; t1=tmp; }
    
   
 
-// Computes L_j'(0) and L_j''
-// See: Yuan, Chang et al. : 
-//  A Comparison of Optimization Methods and Software for Large-scale L1-regularized Linear Classification
-//  equation (25)
+/**
+ * Computes L_j'(0) and L_j''
+ * See: Yuan, Chang et al. : 
+ *    A Comparison of Optimization Methods and Software for Large-scale L1-regularized Linear Classification
+ *    equation (25)
+ */
 inline void logreg_cdn_derivandH(double lambda, int x_i, double &G, double& H) {
   G = H = 0;
   sparse_array& col = logregprob->A_cols[x_i];
@@ -282,12 +306,12 @@ inline double compute_d(double xv, double Ld0, double Ldd0, int x_i) {
       violation = -Gp;
     } else if (Gn > 0) {
       violation = Gn;
-    } else if(Gp>Gmax_old/logregprob->ny && Gn<-Gmax_old/logregprob->ny) {
+    } else if (Gp > Gmax_old/logregprob->ny && Gn < -Gmax_old/logregprob->ny) {
       // Remove
       active[x_i] = false;
       return 0.0;
-    }   
-  } else if(xv > 0)
+    }
+  } else if (xv > 0)
     violation = fabs(Gp);
   else
     violation = fabs(Gn);
@@ -296,11 +320,11 @@ inline double compute_d(double xv, double Ld0, double Ldd0, int x_i) {
   //if (Gmax < violation)
   //    Gmax = violation;
   logregprob->Gmax.max(0, violation);
-  //printf("node %d violation %g Ld0 %g Ldd0 %g Gp %g Gn %g xv %g \n", x_i, violation, Ld0, Ldd0, Gp, Gn, xv);
+  //  printf("node %d violation %g Ld0 %g Ldd0 %g Gp %g Gn %g xv %g \n", x_i, violation, Ld0, Ldd0, Gp, Gn, xv);
 
   double rhs = Ldd0*xv;
   if (Gp<= rhs) {
-    return -(Gp/Ldd0);
+    return -(Gp/Ldd0);  // See Eq. (29) in Yuan et al. (2010)
   } else if (Gn >= rhs) {
     return -(Gn/Ldd0); 
   } else {
@@ -448,7 +472,7 @@ void shoot_logreg(int x_i, double lambda) {
   */
 void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, int max_iter, int useOffset, double* initial_x, double initial_offset) {
 
-		int verbose = 0;
+    int verbose = 0;
     logregprob = prob;
     //double l1x, loglikelihood;
     int iterations = 0;//, t=0;
@@ -457,14 +481,14 @@ void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, i
     std::vector<int> shuffled_indices;
     for(int j=0; j<logregprob->nx; j++) shuffled_indices.push_back(j);
 
-    Gmax_old = 1e30;
+    Gmax_old = (double)(1e30);
     // Adjust threshold similarly as liblinear
     initialize_all(useOffset, initial_x, initial_offset);
     term_threshold =  term_threshold*std::min(pos_y,neg_y)/double(logregprob->ny);
     
     while(true) {
       int active_size = logregprob->nx;
-      num_of_shoots += active_size;   
+      num_of_shoots += active_size;
 
       // Randomization
       if (shuffle) {
@@ -508,20 +532,28 @@ void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, i
           s--;
         }
       }
-        
+
       if (logregprob->Gmax[0] <= term_threshold*Gmax_init) {
         // std::cout << active_size << std::endl;
         if (active_size == logregprob->nx) {
-          printf("Encountered all zero solution! try to decrease lambda\n");
-          break;              
+          bool all_zero = true;
+          for (int i = 0; i < logregprob->nx; i++) {
+            if (logregprob->x[i] != 0) {
+              all_zero = false;
+              break;
+            }
+          }
+          if (all_zero)
+            printf("Encountered all zero solution! try to decrease lambda\n");
+          break;
         } else {
-          Gmax_old = 1e30;
+          Gmax_old = (double)(1e30);
           for(int i=0; i<logregprob->nx; i++) active[i] = true;
           active_size=logregprob->nx;
           recompute_expAx_pb();
           //continue;
         }
-      }  
+      }
 
       if (verbose){
         double l1x=0, loglikelihood=0;
@@ -529,13 +561,16 @@ void compute_logreg(shotgun_data * prob, double lambda, double term_threshold, i
         double obj = compute_objective_logreg(lambda, &l1x, &loglikelihood, &l0, NULL);
         printf("objective is: %g l1: %g loglikelihood %g l0: %d\n", obj, l1x, loglikelihood, l0); 
       }
+      // Reset Gmax
+      logregprob->Gmax[0] = 0.0;
     }// end iterations
 
     if (!verbose){
       double l1x=0, loglikelihood=0;
       int l0=0;
       double obj = compute_objective_logreg(lambda, &l1x, &loglikelihood, &l0, NULL);
-      printf("objective is: %g l1: %g loglikelihood %g l0: %d\n", obj, l1x, loglikelihood, l0); 
+      printf("objective is: %g l1: %g loglikelihood %g l0: %d\n", obj, l1x, loglikelihood, l0);
+      printf("  after %d iterations\n", iterations);
     }
 
     delete[] active;
