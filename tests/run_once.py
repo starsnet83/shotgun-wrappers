@@ -6,16 +6,19 @@ import sys
 sys.path.append('..')
 import shotgunpy
 
-data = scipy.io.loadmat("/Users/jbradley/data/lasso/arcene.mat")
+data = scipy.io.loadmat("/Users/jbradley/data/lasso/lasso2_1000_1000_1.mat")
 y = np.array(data['y'], dtype=np.float)
 A = data['A']
+print 'Running Lasso on dataset with n=%d, d=%d\n' % np.shape(data['A'])
 
 solver = shotgunpy.ShotgunSolver()
 solver.set_use_offset(False)
 solver.set_maxIter(10)
 lam = .5
-sol = solver.solve_logreg(A,y,lam)
+sol = solver.solve_lasso(A,y,lam)
 sol.obj
+print 'Final objective = %g\n' % (sol.obj)
+#print 'Final solution = %s\n' % (str(sol.w))
 
 class TestPythonWrapper(unittest.TestCase):
 

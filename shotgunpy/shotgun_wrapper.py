@@ -163,7 +163,10 @@ class ShotgunSolver(object):
 		# Form results:
 		w = result[0:-1]
 		offset = result[-1]
-		residuals = - (np.dot(A, w) + offset)
+		try:
+			residuals = - (A.dot(w) + offset) #changed from: - (np.dot(A,w) + offset)
+		except:
+			print 'blah'
 
 		for i in range(len(residuals)):
 			residuals[i] *= y[i]
